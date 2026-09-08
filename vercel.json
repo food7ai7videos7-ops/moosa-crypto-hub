@@ -1,5 +1,0 @@
-{
-  "routes": [
-    { "src": "/api/trade", "dest": "/trade.js" }
-  ]
-}
