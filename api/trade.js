@@ -27,9 +27,11 @@ module.exports = async (req, res) => {
         const requestPath = "/api/v2/spot/trade/place-order";
         
         let parsedSize = parseFloat(size);
-        // Bitget minimum size safeguard: Ensure size is high enough to pass 1 USDT limit
-        if (parsedSize < 1) {
-            parsedSize = 1.0; 
+        
+        // Bitget minimum requirement check: Ensure size is never below exchange threshold
+        // (Aksar pairs par minimum size 0.001 ya 1 unit hoti hai)
+        if (isNaN(parsedSize) || parsedSize < 0.001) {
+            parsedSize = 0.001;
         }
 
         const bodyData = JSON.stringify({
@@ -56,6 +58,8 @@ module.exports = async (req, res) => {
 
         return res.status(200).json(response.data);
     } catch (error) {
-        return res.status(500).json({ error: error.response?.data || error.message });
+        // Detailed error capture from Bitget response
+        const errorMsg = error.response?.data?.msg || error.response?.data || error.message;
+        return res.status(500).json({ error: errorMsg });
     }
 };
