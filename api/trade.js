@@ -26,8 +26,9 @@ module.exports = async (req, res) => {
         const method = "POST";
         const requestPath = "/api/v2/spot/trade/place-order";
         
-        // Bitget ke mutabiq size ko proper string format mein rakhna
-        const formattedSize = Number(size).toFixed(4);
+        // Ensure size has enough precision decimals for BTC (e.g. 4 to 6 decimal places)
+        let parsedSize = parseFloat(size);
+        if (parsedSize < 0.001) parsedSize = 0.001; // Bitget minimum safeguard
 
         const bodyData = JSON.stringify({
             symbol: symbol,
@@ -35,7 +36,7 @@ module.exports = async (req, res) => {
             marginMode: "spot",
             side: side.toLowerCase(),
             orderType: orderType.toLowerCase(),
-            size: formattedSize
+            size: parsedSize.toFixed(4)
         });
 
         const message = timestamp + method.toUpperCase() + requestPath + bodyData;
