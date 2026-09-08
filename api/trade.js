@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const { symbol, side, orderType, size, price } = req.body;
+        const { symbol, side, orderType, size } = req.body;
         
         const API_KEY = process.env.BITGET_API_KEY;
         const SECRET_KEY = process.env.BITGET_SECRET_KEY;
@@ -26,14 +26,16 @@ module.exports = async (req, res) => {
         const method = "POST";
         const requestPath = "/api/v2/spot/trade/place-order";
         
+        // Bitget ke mutabiq size ko proper string format mein rakhna
+        const formattedSize = Number(size).toFixed(4);
+
         const bodyData = JSON.stringify({
             symbol: symbol,
             productType: "spot",
             marginMode: "spot",
             side: side.toLowerCase(),
             orderType: orderType.toLowerCase(),
-            size: size,
-            price: price || undefined
+            size: formattedSize
         });
 
         const message = timestamp + method.toUpperCase() + requestPath + bodyData;
