@@ -93,33 +93,60 @@ function calculateTrade() {
     }
 }
 
-function executeTrade(type) {
+async function executeTrade(type) {
     const amount = parseFloat(document.getElementById('trade-amount').value) || 0;
     if(amount <= 0 || amount > usdtBalance) {
         alert('Insufficient USDT Balance or Invalid Amount!');
         return;
     }
 
-    usdtBalance -= amount;
-    const fee = amount * 0.001;
-    adminFeeBalance += fee;
-    const netAmount = amount - fee;
-    const qty = netAmount / currentPrice;
+    const qty = amount / currentPrice;
 
-    const trade = {
-        id: Date.now(),
-        symbol: activePair,
-        type: type,
-        entryPrice: currentPrice,
-        qty: qty,
-        amount: netAmount
-    };
+    try {
+        const response = await fetch('/api/trade', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                symbol: activePair,
+                side: type,
+                orderType: 'market',
+                size: qty.toFixed(4)
+            })
+        });
 
-    activeTrades.push(trade);
-    localStorage.setItem('active_trades', JSON.stringify(activeTrades));
-    updateUI();
-    renderActiveTrades();
-    alert(`${type} Order Executed Successfully for ${activePair}!`);
+        const result = await response.json();
+
+        if (response.ok) {
+            usdtBalance -= amount;
+            const fee = amount * 0.001;
+            adminFeeBalance += fee;
+            const netAmount = amount - fee;
+
+            const trade = {
+                id: Date.now(),
+                symbol: activePair,
+                type: type,
+                entryPrice: currentPrice,
+                qty: qty,
+                amount: netAmount
+            };
+
+            activeTrades.push(trade);
+            localStorage.setItem('active_trades', JSON.stringify(activeTrades));
+            updateUI();
+            renderActiveTrades();
+            
+            alert(`SUCCESS! ${type} Order Executed on Real Bitget Account for ${activePair}!`);
+        } else {
+            console.error("Bitget API Error:", result);
+            alert(`Exchange Error: ${result.error?.msg || JSON.stringify(result.error) || 'Failed to execute'}`);
+        }
+    } catch (error) {
+        console.error("Network Error:", error);
+        alert('Network connection error while executing trade on exchange.');
+    }
 }
 
 function renderActiveTrades() {
