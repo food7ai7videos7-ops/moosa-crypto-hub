@@ -20,44 +20,13 @@
             align-items: center;
             border-bottom: 1px solid #363c4e;
         }
-        .logo {
-            font-weight: bold;
-            color: #f0b90b;
-            font-size: 1.2rem;
-        }
-        .balance-box {
-            font-size: 0.9rem;
-            color: #848e9c;
-        }
-        .balance-box span {
-            color: #0ecb81;
-            font-weight: bold;
-        }
-        .main-container {
-            padding: 15px;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .card {
-            background: #1e2329;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            border: 1px solid #363c4e;
-        }
-        .btn-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .btn {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-            font-weight: bold;
-            cursor: pointer;
-        }
+        .logo { font-weight: bold; color: #f0b90b; font-size: 1.2rem; }
+        .balance-box { font-size: 0.9rem; color: #848e9c; }
+        .balance-box span { color: #0ecb81; font-weight: bold; }
+        .main-container { padding: 15px; max-width: 600px; margin: 0 auto; }
+        .card { background: #1e2329; border-radius: 8px; padding: 15px; margin-bottom: 15px; border: 1px solid #363c4e; }
+        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
+        .btn { flex: 1; padding: 10px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
         .btn-deposit { background: #f0b90b; color: #000; }
         .btn-withdraw { background: #2b313a; color: #fff; border: 1px solid #474d57; }
         .btn-admin { background: #363c4e; color: #f0b90b; font-size: 0.8rem; padding: 5px 10px; }
@@ -72,9 +41,7 @@
             cursor: pointer;
             font-size: 0.85rem;
         }
-        .market-item.active {
-            border: 1px solid #f0b90b;
-        }
+        .market-item.active { border: 1px solid #f0b90b; }
         .text-green { color: #0ecb81; }
         
         input[type="text"], input[type="number"], input[type="password"] {
@@ -90,9 +57,7 @@
         
         .trade-btn-buy { background: #0ecb81; color: #fff; }
         .trade-btn-sell { background: #f6465d; color: #fff; }
-        .close-all-btn { background: #f6465d; border: none; color: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
         
-        /* Modal Styles */
         .modal {
             display: none;
             position: fixed;
@@ -125,7 +90,6 @@
 
     <div class="main-container">
         
-        <!-- Wallet Actions -->
         <div class="card">
             <div class="btn-group">
                 <button class="btn btn-deposit" onclick="openModal('deposit-modal')">Deposit</button>
@@ -133,7 +97,6 @@
             </div>
         </div>
 
-        <!-- Markets List -->
         <div class="card">
             <h3 style="margin-top:0; font-size:1rem; color:#f0b90b;">Markets</h3>
             <input type="text" id="market-search" placeholder="Search pair (e.g. BTC)..." oninput="filterMarkets()">
@@ -142,13 +105,26 @@
             </div>
         </div>
 
-        <!-- Trading Terminal -->
         <div class="card">
             <h3 id="selected-pair-title" style="margin-top:0; font-size:1rem; color:#f0b90b;">Trading: BTCUSDT</h3>
             <p style="font-size: 0.85rem; color:#848e9c;">Current Price: $<span id="selected-price" style="color:#fff; font-weight:bold;">0.00</span></p>
             
             <input type="number" id="trade-amount" placeholder="Amount in USDT" oninput="calculateTrade()">
-            <p style="font-size: 0.75rem; color:#848e9c;">Estimated Qty: <span id="est-qty" style="color:#fff;">0.00</span></p>
+            <p style="font-size: 0.75rem; color:#848e9c; margin-bottom:10px;">Estimated Qty: <span id="est-qty" style="color:#fff;">0.00</span></p>
+
+            <!-- TP and SL Inputs -->
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                <div style="flex:1;">
+                    <label style="font-size: 0.75rem; color:#848e9c;">Take Profit (TP)</label>
+                    <input type="number" id="tp-price" placeholder="Target Price" oninput="calculateTrade()" style="margin-bottom:2px;">
+                    <small style="font-size: 0.7rem; color:#0ecb81;">Est: <span id="tp-est-profit">$0.00</span></small>
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size: 0.75rem; color:#848e9c;">Stop Loss (SL)</label>
+                    <input type="number" id="sl-price" placeholder="Stop Price" oninput="calculateTrade()" style="margin-bottom:2px;">
+                    <small style="font-size: 0.7rem; color:#f6465d;">Est: <span id="sl-est-loss">$0.00</span></small>
+                </div>
+            </div>
 
             <div class="btn-group">
                 <button class="btn trade-btn-buy" onclick="executeTrade('BUY')">BUY / LONG</button>
@@ -156,7 +132,6 @@
             </div>
         </div>
 
-        <!-- Active Trades -->
         <div class="card">
             <h3 style="margin-top:0; font-size:1rem; color:#f0b90b;">Active Positions</h3>
             <div id="active-trades-container">
@@ -171,15 +146,15 @@
         <div class="modal-content">
             <h3 style="margin-top:0; color:#f0b90b;">Deposit Funds</h3>
             <p style="font-size:0.8rem; color:#848e9c; margin: 10px 0; line-height: 1.4;">
-                ⚠️ <strong>Important Notice:</strong> Kindly send your funds to the official Crypto Address or EasyPaisa/JazzCash account provided below first. After successful transfer, enter the amount and submit your request for instant verification.
+                ⚠️ <strong>Important Notice:</strong> Kindly send your funds to the official Crypto Address or EasyPaisa number provided below first. After successful transfer, enter the amount and submit your request for approval.
             </p>
             <div style="background:#181a20; padding:10px; border-radius:6px; font-size:0.8rem; margin-bottom:10px; word-break:break-all; border:1px solid #2b313a;">
                 <strong>USDT (TRC20) Address:</strong><br>
-                <span style="color:#fcd535;">TUxxxxxxxxxxxxxxxxxxxxxxxxxxx</span>
+                <span id="display-crypto-addr" style="color:#fcd535;">Loading...</span>
             </div>
             <div style="background:#181a20; padding:10px; border-radius:6px; font-size:0.8rem; margin-bottom:15px; border:1px solid #2b313a;">
                 <strong>EasyPaisa / JazzCash:</strong><br>
-                <span style="color:#fcd535;">03XXXXXXXXX (Name: Moosa Malik)</span>
+                <span id="display-ep-num" style="color:#fcd535;">Loading...</span>
             </div>
             <input type="number" id="deposit-input" placeholder="Enter Amount in USDT">
             <button class="btn btn-deposit" style="width:100%; margin-bottom:5px;" onclick="submitDeposit()">Submit Deposit Request</button>
@@ -199,7 +174,7 @@
 
     <!-- Admin Modal -->
     <div id="admin-modal" class="modal">
-        <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
+        <div class="modal-content" style="max-height: 85vh; overflow-y: auto;">
             <h3 style="margin-top:0; color:#f0b90b;">Admin Control Panel</h3>
             
             <h4 style="font-size:0.85rem; color:#848e9c; margin-bottom:5px;">Pending Deposits</h4>
@@ -208,8 +183,16 @@
             <h4 style="font-size:0.85rem; color:#848e9c; margin-bottom:5px;">Pending Withdrawals</h4>
             <div id="admin-withdrawals-list" style="margin-bottom:15px;"></div>
 
+            <!-- Deposit Info Edit Section -->
+            <div style="border-top: 1px solid #363c4e; padding-top: 10px; margin-bottom:15px;">
+                <h4 style="color:#f0b90b; font-size:0.9rem; margin:0 0 5px 0;">Edit Deposit Info</h4>
+                <input type="text" id="admin-edit-crypto" placeholder="Crypto Address (TRC20)" style="margin-bottom:5px; font-size:0.8rem;">
+                <input type="text" id="admin-edit-ep" placeholder="EasyPaisa / Name" style="margin-bottom:5px; font-size:0.8rem;">
+                <button class="btn btn-deposit" style="width:100%; padding:6px; font-size:0.8rem;" onclick="saveAdminPaymentDetails()">Save Deposit Info</button>
+            </div>
+
             <!-- Fee Management -->
-            <div style="border-top: 1px solid #363c4e; padding-top: 10px;">
+            <div style="border-top: 1px solid #363c4e; padding-top: 10px; margin-bottom:15px;">
                 <h4 style="color:#f0b90b; font-size:0.9rem; margin:0 0 5px 0;">Fee Management</h4>
                 <div style="display:flex; gap:5px;">
                     <input type="number" id="admin-fee-percent-input" placeholder="Fee %" step="0.01" style="margin-bottom:0;">
@@ -218,10 +201,10 @@
             </div>
 
             <!-- Admin Profit Withdrawal -->
-            <div style="margin-top: 15px; border-top: 1px solid #363c4e; padding-top: 10px;">
+            <div style="border-top: 1px solid #363c4e; padding-top: 10px;">
                 <h4 style="color:#f0b90b; font-size:0.9rem; margin:0 0 5px 0;">Admin Profit Withdrawal</h4>
                 <p style="font-size:0.75rem; color:#848e9c; margin: 5px 0;">Accumulated Fees: <span id="admin-fee-balance" style="color:#0ecb81; font-weight:bold;">0.00 USDT</span></p>
-                <input type="text" id="admin-withdraw-address" placeholder="Enter Your Crypto Address (TRC20)">
+                <input type="text" id="admin-withdraw-address" placeholder="Enter Your Crypto Address (TRC20)" style="font-size:0.8rem;">
                 <button class="btn trade-btn-buy" style="width:100%; padding:8px; font-size:0.8rem;" onclick="withdrawAdminProfit()">Withdraw Profit to Wallet</button>
             </div>
 
