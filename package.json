@@ -1,0 +1,9 @@
+{
+  "name": "moosa-crypto-hub",
+  "version": "1.0.0",
+  "description": "Bitget Trading Terminal",
+  "main": "trade.js",
+  "dependencies": {
+    "axios": "^1.6.8"
+  }
+}
