@@ -13,7 +13,6 @@ let pendingDeposits = JSON.parse(localStorage.getItem('pending_deposits')) || []
 let pendingWithdrawals = JSON.parse(localStorage.getItem('pending_withdrawals')) || [];
 let marketDataList = [];
 
-// Audio alert for trade execution
 function playTradeSound() {
     try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -64,8 +63,8 @@ function initApp() {
     updateUI();
     fetchLiveMarkets();
     renderActiveTrades();
+    renderHoldings();
     loadDepositDetailsToUI();
-    // Optimized interval to prevent lag
     setInterval(fetchLiveMarkets, 6000);
     setInterval(checkTpSlAndLivePnL, 1500);
 }
@@ -97,7 +96,7 @@ function renderMarkets(filter = "") {
     for (let i = 0; i < marketDataList.length; i++) {
         let item = marketDataList[i];
         if(item.symbol.toLowerCase().includes(filter.toLowerCase())) {
-            if(count > 30) break; // Limit items to prevent UI lag
+            if(count > 30) break;
             const isSelected = item.symbol === activePair ? "active" : "";
             const changeColor = item.change.includes("+") ? "text-green" : "color: #f6465d;";
             html += `
@@ -144,7 +143,6 @@ function calculateTrade() {
         const qty = amount / currentPrice;
         estQtyEl.innerText = qty.toFixed(6);
 
-        // TP / SL estimation preview
         const tpPrice = parseFloat(tpInput?.value) || 0;
         const slPrice = parseFloat(slInput?.value) || 0;
 
@@ -188,10 +186,10 @@ async function executeTrade(type) {
         const result = await response.json();
 
         if (response.ok) {
-            usdtBalance -= amount;
+            usdtBalance -= amount; // Deduct invested amount
             const fee = amount * (platformFeePercent / 100);
             adminFeeBalance += fee;
-            const netAmount = amount - fee;
+            const netInvestedAmount = amount - fee;
 
             const trade = {
                 id: Date.now(),
@@ -199,7 +197,7 @@ async function executeTrade(type) {
                 type: type,
                 entryPrice: currentPrice,
                 qty: qty,
-                amount: netAmount,
+                invested: netInvestedAmount,
                 tp: tpPrice,
                 sl: slPrice
             };
@@ -208,6 +206,7 @@ async function executeTrade(type) {
             localStorage.setItem('active_trades', JSON.stringify(activeTrades));
             updateUI();
             renderActiveTrades();
+            renderHoldings();
             
             playTradeSound();
             showCustomPopup("Trade Successful! 🚀", `${type} Order Executed for ${activePair}!\nAmount: $${amount.toFixed(2)}`);
@@ -265,6 +264,48 @@ function renderActiveTrades() {
     container.innerHTML = html;
 }
 
+// Holdings Section - Show coin specific holdings
+function renderHoldings() {
+    const container = document.getElementById('holdings-container');
+    if(!container) return;
+    
+    if(activeTrades.length === 0) {
+        container.innerHTML = `<p style="font-size:0.8rem; color:#848e9c; text-align:center;">No holdings available</p>`;
+        return;
+    }
+
+    // Group by symbol
+    let holdingsMap = {};
+    activeTrades.forEach(t => {
+        if(!holdingsMap[t.symbol]) {
+            holdingsMap[t.symbol] = { totalQty: 0, totalInvested: 0 };
+        }
+        holdingsMap[t.symbol].totalQty += t.qty;
+        holdingsMap[t.symbol].totalInvested += t.invested;
+    });
+
+    let html = "";
+    for(let symbol in holdingsMap) {
+        let h = holdingsMap[symbol];
+        let curPrice = marketDataList.find(m => m.symbol === symbol)?.price || 0;
+        let currentValue = h.totalQty * curPrice;
+        
+        html += `
+            <div style="background:#181a20; padding:8px 10px; border-radius:5px; margin-bottom:5px; font-size:0.8rem; display:flex; justify-content:space-between; align-items:center; border:1px solid #2b313a;">
+                <div>
+                    <strong>${symbol}</strong><br>
+                    <span style="color:#848e9c;">Qty: ${h.totalQty.toFixed(4)}</span>
+                </div>
+                <div style="text-align:right;">
+                    <span>Val: $${currentValue.toFixed(2)}</span><br>
+                    <small style="color:#0ecb81;">Invested: $${h.totalInvested.toFixed(2)}</small>
+                </div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
 function checkTpSlAndLivePnL() {
     if(activeTrades.length === 0) return;
     let updated = false;
@@ -277,13 +318,12 @@ function checkTpSlAndLivePnL() {
         const diff = curPrice - t.entryPrice;
         const pnl = t.type === 'BUY' ? diff * t.qty : -diff * t.qty;
 
-        // Check TP hit
         let tpHit = t.tp > 0 && ((t.type === 'BUY' && curPrice >= t.tp) || (t.type === 'SELL' && curPrice <= t.tp));
-        // Check SL hit
         let slHit = t.sl > 0 && ((t.type === 'BUY' && curPrice <= t.sl) || (t.type === 'SELL' && curPrice >= t.sl));
 
         if (tpHit || slHit) {
-            usdtBalance += (t.amount + pnl);
+            // FIXED BALANCE CALCULATION: Correctly add initial invested amount + net pnl only once
+            usdtBalance += (t.invested + pnl);
             activeTrades.splice(i, 1);
             updated = true;
             playTradeSound();
@@ -294,6 +334,7 @@ function checkTpSlAndLivePnL() {
     if(updated) {
         localStorage.setItem('active_trades', JSON.stringify(activeTrades));
         updateUI();
+        renderHoldings();
     }
     renderActiveTrades();
 }
@@ -304,17 +345,21 @@ function closeTrade(index) {
     const diff = currentMarketPrice - t.entryPrice;
     const pnl = t.type === 'BUY' ? diff * t.qty : -diff * t.qty;
     
-    usdtBalance += (t.amount + pnl);
+    // FIXED BALANCE CALCULATION: Add back invested principal + profit/loss precisely
+    usdtBalance += (t.invested + pnl);
     activeTrades.splice(index, 1);
+    
     localStorage.setItem('active_trades', JSON.stringify(activeTrades));
     updateUI();
     renderActiveTrades();
+    renderHoldings();
     showCustomPopup("Position Closed", `Trade closed successfully. PnL: $${pnl.toFixed(2)}`);
 }
 
 function openModal(id) {
     const el = document.getElementById(id);
     if(el) el.style.display = 'flex';
+    if(id === 'admin-modal') loadAdminData();
 }
 
 function closeModal(id) {
@@ -388,7 +433,6 @@ function loadAdminData() {
     if(cryptoInput) cryptoInput.value = adminCryptoAddr;
     if(epInput) epInput.value = adminEasypaisaNum;
     
-    // Deposits List with Approve / Reject
     const depContainer = document.getElementById('admin-deposits-list');
     if(depContainer) {
         depContainer.innerHTML = pendingDeposits.length === 0 ? "<p style='color:#848e9c; font-size:0.75rem; text-align:center;'>No pending deposits</p>" : "";
@@ -405,7 +449,6 @@ function loadAdminData() {
         });
     }
 
-    // Withdrawals List with Approve / Reject
     const wContainer = document.getElementById('admin-withdrawals-list');
     if(wContainer) {
         wContainer.innerHTML = pendingWithdrawals.length === 0 ? "<p style='color:#848e9c; font-size:0.75rem; text-align:center;'>No pending withdrawals</p>" : "";
