@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Trading Terminal & Exchanger</title>
+    <title>Pro Crypto Exchanger & Bitget Live Terminal</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -13,44 +13,134 @@
         <header class="terminal-header">
             <div class="logo">
                 <i class="fa-solid fa-chart-line"></i>
-                <span>MOOSA HUB <small>PRO</small></span>
+                <span>PRO EXCHANGER <small>BITGET LIVE</small></span>
             </div>
-            <div class="network-status">
-                <span class="status-dot"></span> Live Bitget Feed
+            <div class="header-actions">
+                <button onclick="openModal('deposit-modal')" class="nav-btn deposit-btn"><i class="fa-solid fa-wallet"></i> Deposit</button>
+                <button onclick="openModal('withdraw-modal')" class="nav-btn withdraw-btn"><i class="fa-solid fa-arrow-up-from-bracket"></i> Withdraw</button>
+                <button onclick="openAdminLogin()" class="nav-btn admin-btn"><i class="fa-solid fa-lock"></i> Admin</button>
             </div>
         </header>
 
-        <!-- Main Dashboard -->
+        <!-- Main Dashboard Grid -->
         <main class="dashboard-grid">
-            <!-- Left Panel: Market Data -->
-            <section class="panel market-panel">
-                <h2><i class="fa-solid fa-coins"></i> Market Ticker</h2>
-                <div class="ticker-box">
-                    <div class="pair-info">
-                        <span id="active-pair">BTCUSDT</span>
-                        <span id="live-price" class="price-highlight">0.00</span>
+            <!-- Left Panel: Market & Trading -->
+            <section class="panel left-panel">
+                <div class="balance-card">
+                    <div>
+                        <small>USDT Balance</small>
+                        <h2 id="usdt-balance">1,000.00</h2>
                     </div>
-                    <div class="stats-row">
-                        <span>24h High: <strong id="high-price">0.00</strong></span>
-                        <span>24h Low: <strong id="low-price">0.00</strong></span>
+                    <div>
+                        <small>Portfolio PNL</small>
+                        <h2 id="portfolio-pnl" class="text-green">$0.00</h2>
+                    </div>
+                </div>
+
+                <!-- Market Search & Ticker List -->
+                <div class="market-section">
+                    <h3><i class="fa-solid fa-coins"></i> Bitget V2 Live Markets</h3>
+                    <input type="text" id="market-search" placeholder="Search coin (e.g. BTC, ETH)..." onkeyup="filterMarkets()">
+                    <div class="market-list" id="market-list-container">
+                        <p class="no-trades">Connecting to Bitget API...</p>
                     </div>
                 </div>
             </section>
 
-            <!-- Right Panel: Exchange / Trade Simulator -->
-            <section class="panel trade-panel">
-                <h2><i class="fa-solid fa-right-left"></i> Quick Converter</h2>
-                <div class="form-group">
-                    <label>You Pay (USDT)</label>
-                    <input type="number" id="pay-amount" placeholder="0.00" value="10">
+            <!-- Right Panel: Order Form & Active Trades -->
+            <section class="panel right-panel">
+                <div class="order-box">
+                    <h3 id="selected-pair-title">Trading: BTCUSDT</h3>
+                    <div class="current-price-display">
+                        Bitget Price: <span id="selected-price">0.00</span> USDT
+                    </div>
+
+                    <div class="form-group">
+                        <label>Order Type</label>
+                        <select id="order-type">
+                            <option value="market">Market Order</option>
+                            <option value="limit">Limit Order</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Amount in USDT</label>
+                        <input type="number" id="trade-amount" placeholder="0.00" value="50" oninput="calculateTrade()">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Estimated Quantity: <span id="est-qty">0.00</span></label>
+                    </div>
+
+                    <div class="trade-action-buttons">
+                        <button class="action-btn buy-btn" onclick="executeTrade('BUY')">BUY / LONG</button>
+                        <button class="action-btn sell-btn" onclick="executeTrade('SELL')">SELL / SHORT</button>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Estimated Receive</label>
-                    <input type="text" id="receive-amount" readonly placeholder="0.00">
+
+                <!-- Active Holdings -->
+                <div class="holdings-section">
+                    <div class="holdings-header">
+                        <h3>Active Positions</h3>
+                        <button class="close-all-btn" onclick="closeAllTrades()">Close All</button>
+                    </div>
+                    <div class="holdings-list" id="active-trades-container">
+                        <p class="no-trades">No active positions</p>
+                    </div>
                 </div>
-                <button id="trade-btn" class="action-btn">Execute Order</button>
             </section>
         </main>
+    </div>
+
+    <!-- Deposit Modal -->
+    <div id="deposit-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('deposit-modal')">&times;</span>
+            <h2>Deposit USDT</h2>
+            <p>Send USDT (TRC20 Network) to address below:</p>
+            <div class="crypto-address-box">
+                <code>TXz9sampleTRC20WalletAddressMoosa786</code>
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <label>Enter Deposited Amount (USDT)</label>
+                <input type="number" id="deposit-input" placeholder="e.g. 100">
+            </div>
+            <button class="action-btn buy-btn" onclick="submitDeposit()">Submit Deposit Request</button>
+        </div>
+    </div>
+
+    <!-- Withdraw Modal -->
+    <div id="withdraw-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('withdraw-modal')">&times;</span>
+            <h2>Withdraw USDT</h2>
+            <div class="form-group">
+                <label>Withdrawal Amount (USDT)</label>
+                <input type="number" id="withdraw-amount-input" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label>TRC20 Wallet Address</label>
+                <input type="text" id="withdraw-address-input" placeholder="Enter your wallet address">
+            </div>
+            <button class="action-btn buy-btn" onclick="submitWithdrawal()">Request Withdrawal</button>
+        </div>
+    </div>
+
+    <!-- Admin Panel Modal -->
+    <div id="admin-modal" class="modal">
+        <div class="modal-content admin-content">
+            <span class="close" onclick="closeModal('admin-modal')">&times;</span>
+            <h2><i class="fa-solid fa-shield-halved"></i> Admin Dashboard</h2>
+            <div class="admin-stats">
+                <p>Admin Fee Collected: <strong id="admin-fee-balance">0.00 USDT</strong></p>
+            </div>
+            <h3>Pending Deposits</h3>
+            <div id="admin-deposits-list" class="admin-list"></div>
+            
+            <h3>Pending Withdrawals</h3>
+            <div id="admin-withdrawals-list" class="admin-list"></div>
+            <button class="action-btn" style="background:#333; color:#fff; margin-top:15px;" onclick="closeModal('admin-modal')">Close Panel</button>
+        </div>
     </div>
 
     <script src="script.js"></script>
