@@ -8,21 +8,17 @@
 body {
     background-color: #0b0e11;
     color: #eaecef;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    padding: 10px;
     min-height: 100vh;
-    padding: 20px;
 }
 
 .terminal-container {
-    width: 100%;
-    max-width: 800px;
+    max-width: 1200px;
+    margin: 0 auto;
     background: #181a20;
     border: 1px solid #2b313a;
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 .terminal-header {
@@ -51,31 +47,32 @@ body {
     font-size: 0.7rem;
 }
 
-.network-status {
+.header-actions {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    color: #0ecb81;
+    gap: 10px;
 }
 
-.status-dot {
-    width: 8px;
-    height: 8px;
-    background-color: #0ecb81;
-    border-radius: 50%;
-    box-shadow: 0 0 8px #0ecb81;
-    animation: pulse 1.5px infinite;
+.nav-btn {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.85rem;
 }
+
+.deposit-btn { background: #0ecb81; color: #0b0e11; }
+.withdraw-btn { background: #f6465d; color: #fff; }
+.admin-btn { background: #2b313a; color: #f0b90b; }
 
 .dashboard-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    padding: 20px;
+    gap: 15px;
+    padding: 15px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
     .dashboard-grid {
         grid-template-columns: 1fr;
     }
@@ -83,79 +80,218 @@ body {
 
 .panel {
     background: #1e2329;
-    padding: 20px;
+    padding: 15px;
     border-radius: 8px;
     border: 1px solid #2b313a;
 }
 
-.panel h2 {
-    font-size: 1rem;
-    margin-bottom: 15px;
-    color: #848e9c;
+.balance-card {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    justify-content: space-between;
+    background: #181a20;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    border: 1px solid #2b313a;
 }
 
-.ticker-box .price-highlight {
-    font-size: 1.8rem;
-    font-weight: bold;
-    color: #0ecb81;
-    display: block;
-    margin: 10px 0;
+.balance-card small { color: #848e9c; }
+.balance-card h2 { font-size: 1.4rem; margin-top: 5px; }
+.text-green { color: #0ecb81; }
+
+.market-section h3 {
+    font-size: 0.95rem;
+    color: #848e9c;
+    margin-bottom: 10px;
 }
 
-.stats-row {
+#market-search {
+    width: 100%;
+    padding: 8px 10px;
+    background: #0b0e11;
+    border: 1px solid #2b313a;
+    border-radius: 6px;
+    color: #eaecef;
+    margin-bottom: 10px;
+}
+
+.market-list {
+    max-height: 250px;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    font-size: 0.85rem;
-    color: #848e9c;
+    gap: 6px;
 }
 
-.stats-row strong {
-    color: #eaecef;
+.market-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    background: #181a20;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.market-item:hover, .market-item.active {
+    border-color: #f0b90b;
+}
+
+.order-box h3 {
+    font-size: 1rem;
+    color: #f0b90b;
+    margin-bottom: 10px;
+}
+
+.current-price-display {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    font-weight: bold;
+    color: #0ecb81;
 }
 
 .form-group {
-    margin-bottom: 15px;
+    margin-bottom: 12px;
 }
 
 .form-group label {
     display: block;
     font-size: 0.8rem;
     color: #848e9c;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
 }
 
-.form-group input {
+.form-group input, .form-group select {
     width: 100%;
-    padding: 10px 12px;
+    padding: 8px 10px;
     background: #0b0e11;
     border: 1px solid #2b313a;
     border-radius: 6px;
     color: #eaecef;
-    font-size: 1rem;
-    outline: none;
+    font-size: 0.95rem;
 }
 
-.form-group input:focus {
-    border-color: #f0b90b;
+.trade-action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 15px;
 }
 
 .action-btn {
     width: 100%;
-    padding: 12px;
-    background: #f0b90b;
-    color: #0b0e11;
+    padding: 10px;
     border: none;
     border-radius: 6px;
     font-weight: bold;
-    font-size: 1rem;
     cursor: pointer;
-    transition: background 0.2s;
 }
 
-.action-btn:hover {
-    background: #fcd535;
+.buy-btn { background: #0ecb81; color: #0b0e11; }
+.sell-btn { background: #f6465d; color: #fff; }
+
+.holdings-section {
+    margin-top: 20px;
+    border-top: 1px solid #2b313a;
+    padding-top: 15px;
+}
+
+.holdings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.close-all-btn {
+    background: #2b313a;
+    color: #f6465d;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.holdings-list {
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.no-trades {
+    color: #848e9c;
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 10px;
+}
+
+/* Modals */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: #1e2329;
+    padding: 20px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 450px;
+    border: 1px solid #2b313a;
+    position: relative;
+}
+
+.close {
+    position: absolute;
+    right: 15px;
+    top: 10px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #848e9c;
+}
+
+.crypto-address-box {
+    background: #0b0e11;
+    padding: 10px;
+    border-radius: 6px;
+    word-break: break-all;
+    font-size: 0.85rem;
+    color: #f0b90b;
+    margin-top: 5px;
+}
+
+.admin-list {
+    max-height: 120px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+    background: #0b0e11;
+    padding: 8px;
+    border-radius: 6px;
+}
+
+.admin-req-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    padding: 5px 0;
+    border-bottom: 1px solid #2b313a;
+}
+
+.approve-btn {
+    background: #0ecb81;
+    border: none;
+    color: #0b0e11;
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
 }
