@@ -93,6 +93,7 @@ function calculateTrade() {
     }
 }
 
+// REAL BITGET EXCHANGE TRADE EXECUTION
 async function executeTrade(type) {
     const amount = parseFloat(document.getElementById('trade-amount').value) || 0;
     if(amount <= 0 || amount > usdtBalance) {
