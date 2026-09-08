@@ -1,4 +1,4 @@
-let usdtBalance = parseFloat(localStorage.getItem('usdt_balance')) || 1000.00;
+let usdtBalance = parseFloat(localStorage.getItem('usdt_balance')) || 0.00;
 let adminFeeBalance = parseFloat(localStorage.getItem('admin_fee')) || 0.00;
 let activePair = "BTCUSDT";
 let currentPrice = 65000.00;
@@ -7,39 +7,40 @@ let pendingDeposits = JSON.parse(localStorage.getItem('pending_deposits')) || []
 let pendingWithdrawals = JSON.parse(localStorage.getItem('pending_withdrawals')) || [];
 let marketDataList = [];
 
-const BITGET_API_URL = "https://publicApi.bitget.com/api/v2/spot/market/tickers";
-
-async function fetchBitgetMarkets() {
+// Fetch live markets including ETH, XRP, and all crypto pairs
+async function fetchLiveMarkets() {
     try {
-        const response = await fetch(BITGET_API_URL);
-        const result = await response.json();
+        const response = await fetch("https://api.binance.com/api/v3/ticker/24hr");
+        const data = await response.json();
         
-        if (result && result.data && result.data.length > 0) {
-            marketDataList = result.data.map(item => ({
-                symbol: item.symbol,
-                price: parseFloat(item.lastPr || item.close || 0),
-                change: (parseFloat(item.priceChangePercent || 0) >= 0 ? "+" : "") + parseFloat(item.priceChangePercent || 0).toFixed(2) + "%"
-            })).filter(item => item.symbol.endsWith("USDT"));
+        if (Array.isArray(data) && data.length > 0) {
+            marketDataList = data
+                .filter(item => item.symbol.endsWith("USDT"))
+                .map(item => ({
+                    symbol: item.symbol,
+                    price: parseFloat(item.lastPrice || 0),
+                    change: (parseFloat(item.priceChangePercent || 0) >= 0 ? "+" : "") + parseFloat(item.priceChangePercent || 0).toFixed(2) + "%"
+                }));
 
             renderMarkets(document.getElementById('market-search').value);
             
             const current = marketDataList.find(m => m.symbol === activePair);
             if (current && current.price > 0) {
                 currentPrice = current.price;
-                document.getElementById('selected-price').innerText = currentPrice.toFixed(2);
+                document.getElementById('selected-price').innerText = currentPrice.toFixed(4);
                 calculateTrade();
             }
         }
     } catch (error) {
-        console.error("Error fetching Bitget API data:", error);
+        console.error("Error fetching live markets:", error);
     }
 }
 
 function initApp() {
     updateUI();
-    fetchBitgetMarkets();
+    fetchLiveMarkets();
     renderActiveTrades();
-    setInterval(fetchBitgetMarkets, 4000);
+    setInterval(fetchLiveMarkets, 4000);
 }
 
 function updateUI() {
@@ -51,7 +52,7 @@ function updateUI() {
 function renderMarkets(filter = "") {
     const container = document.getElementById('market-list-container');
     if (marketDataList.length === 0) {
-        container.innerHTML = `<p class="no-trades">Loading Bitget live markets...</p>`;
+        container.innerHTML = `<p class="no-trades">Loading live crypto markets...</p>`;
         return;
     }
     
@@ -63,7 +64,7 @@ function renderMarkets(filter = "") {
             container.innerHTML += `
                 <div class="market-item ${isSelected}" onclick="selectPair('${item.symbol}', ${item.price})">
                     <strong>${item.symbol}</strong>
-                    <span>$${item.price.toFixed(2)}</span>
+                    <span>$${item.price.toFixed(4)}</span>
                     <span class="${changeColor}">${item.change}</span>
                 </div>
             `;
@@ -80,7 +81,7 @@ function selectPair(symbol, price) {
     activePair = symbol;
     currentPrice = price;
     document.getElementById('selected-pair-title').innerText = `Trading: ${symbol}`;
-    document.getElementById('selected-price').innerText = price.toFixed(2);
+    document.getElementById('selected-price').innerText = price.toFixed(4);
     renderMarkets(document.getElementById('market-search').value);
     calculateTrade();
 }
@@ -93,11 +94,10 @@ function calculateTrade() {
     }
 }
 
-// REAL BITGET EXCHANGE TRADE EXECUTION
 async function executeTrade(type) {
     const amount = parseFloat(document.getElementById('trade-amount').value) || 0;
     if(amount <= 0 || amount > usdtBalance) {
-        alert('Insufficient USDT Balance or Invalid Amount!');
+        alert('Insufficient USDT Balance or Invalid Amount! Please deposit first.');
         return;
     }
 
@@ -139,14 +139,14 @@ async function executeTrade(type) {
             updateUI();
             renderActiveTrades();
             
-            alert(`SUCCESS! ${type} Order Executed on Real Bitget Account for ${activePair}!`);
+            alert(`SUCCESS! ${type} Order Executed on Real Account for ${activePair}!`);
         } else {
-            console.error("Bitget API Error:", result);
+            console.error("API Error:", result);
             alert(`Exchange Error: ${result.error?.msg || JSON.stringify(result.error) || 'Failed to execute'}`);
         }
     } catch (error) {
         console.error("Network Error:", error);
-        alert('Network connection error while executing trade on exchange.');
+        alert('Network connection error while executing trade.');
     }
 }
 
@@ -162,7 +162,7 @@ function renderActiveTrades() {
             <div style="background:#181a20; padding:8px; border-radius:6px; margin-bottom:6px; font-size:0.8rem; display:flex; justify-content:space-between; align-items:center;">
                 <div>
                     <strong>${t.symbol}</strong> (${t.type})<br>
-                    Entry: $${t.entryPrice.toFixed(2)} | Qty: ${t.qty.toFixed(4)}
+                    Entry: $${t.entryPrice.toFixed(4)} | Qty: ${t.qty.toFixed(4)}
                 </div>
                 <button class="close-all-btn" onclick="closeTrade(${index})">Close</button>
             </div>
