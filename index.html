@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Trading Terminal & Exchanger</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="terminal-container">
+        <!-- Header -->
+        <header class="terminal-header">
+            <div class="logo">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>MOOSA HUB <small>PRO</small></span>
+            </div>
+            <div class="network-status">
+                <span class="status-dot"></span> Live Bitget Feed
+            </div>
+        </header>
+
+        <!-- Main Dashboard -->
+        <main class="dashboard-grid">
+            <!-- Left Panel: Market Data -->
+            <section class="panel market-panel">
+                <h2><i class="fa-solid fa-coins"></i> Market Ticker</h2>
+                <div class="ticker-box">
+                    <div class="pair-info">
+                        <span id="active-pair">BTCUSDT</span>
+                        <span id="live-price" class="price-highlight">0.00</span>
+                    </div>
+                    <div class="stats-row">
+                        <span>24h High: <strong id="high-price">0.00</strong></span>
+                        <span>24h Low: <strong id="low-price">0.00</strong></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Exchange / Trade Simulator -->
+            <section class="panel trade-panel">
+                <h2><i class="fa-solid fa-right-left"></i> Quick Converter</h2>
+                <div class="form-group">
+                    <label>You Pay (USDT)</label>
+                    <input type="number" id="pay-amount" placeholder="0.00" value="10">
+                </div>
+                <div class="form-group">
+                    <label>Estimated Receive</label>
+                    <input type="text" id="receive-amount" readonly placeholder="0.00">
+                </div>
+                <button id="trade-btn" class="action-btn">Execute Order</button>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
