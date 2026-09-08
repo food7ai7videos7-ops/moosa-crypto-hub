@@ -1,6 +1,11 @@
 let usdtBalance = parseFloat(localStorage.getItem('usdt_balance')) || 0.00;
 let adminFeeBalance = parseFloat(localStorage.getItem('admin_fee')) || 0.00;
-let platformFeePercent = parseFloat(localStorage.getItem('platform_fee_percent')) || 0.1; // Default 0.1%
+let platformFeePercent = parseFloat(localStorage.getItem('platform_fee_percent')) || 0.1; 
+
+// Dynamic Admin Payment Details
+let adminCryptoAddr = localStorage.getItem('admin_crypto_addr') || "TUxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+let adminEasypaisaNum = localStorage.getItem('admin_easypaisa_num') || "03XXXXXXXXX (Name: Moosa Malik)";
+
 let activePair = "BTCUSDT";
 let currentPrice = 65000.00;
 let activeTrades = JSON.parse(localStorage.getItem('active_trades')) || [];
@@ -8,21 +13,21 @@ let pendingDeposits = JSON.parse(localStorage.getItem('pending_deposits')) || []
 let pendingWithdrawals = JSON.parse(localStorage.getItem('pending_withdrawals')) || [];
 let marketDataList = [];
 
-// Audio alert for trade execution success
+// Audio alert for trade execution
 function playTradeSound() {
     try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
         oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5 note
+        oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime);
         gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
         oscillator.connect(gainNode);
         gainNode.connect(audioCtx.destination);
         oscillator.start();
         oscillator.stop(audioCtx.currentTime + 0.15);
     } catch (e) {
-        console.log("Audio not supported or blocked");
+        console.log("Audio blocked");
     }
 }
 
@@ -51,7 +56,7 @@ async function fetchLiveMarkets() {
             }
         }
     } catch (error) {
-        console.error("Error fetching live markets:", error);
+        console.error("Market fetch error:", error);
     }
 }
 
@@ -59,7 +64,10 @@ function initApp() {
     updateUI();
     fetchLiveMarkets();
     renderActiveTrades();
-    setInterval(fetchLiveMarkets, 4000);
+    loadDepositDetailsToUI();
+    // Optimized interval to prevent lag
+    setInterval(fetchLiveMarkets, 6000);
+    setInterval(checkTpSlAndLivePnL, 1500);
 }
 
 function updateUI() {
@@ -68,30 +76,41 @@ function updateUI() {
     localStorage.setItem('usdt_balance', usdtBalance);
     localStorage.setItem('admin_fee', adminFeeBalance);
     localStorage.setItem('platform_fee_percent', platformFeePercent);
+    localStorage.setItem('admin_crypto_addr', adminCryptoAddr);
+    localStorage.setItem('admin_easypaisa_num', adminEasypaisaNum);
+}
+
+function loadDepositDetailsToUI() {
+    const cryptoEl = document.getElementById('display-crypto-addr');
+    const epEl = document.getElementById('display-ep-num');
+    if(cryptoEl) cryptoEl.innerText = adminCryptoAddr;
+    if(epEl) epEl.innerText = adminEasypaisaNum;
 }
 
 function renderMarkets(filter = "") {
     const container = document.getElementById('market-list-container');
     if (!container) return;
-    if (marketDataList.length === 0) {
-        container.innerHTML = `<p class="no-trades">Loading live markets...</p>`;
-        return;
-    }
+    if (marketDataList.length === 0) return;
     
-    container.innerHTML = "";
-    marketDataList.forEach(item => {
+    let html = "";
+    let count = 0;
+    for (let i = 0; i < marketDataList.length; i++) {
+        let item = marketDataList[i];
         if(item.symbol.toLowerCase().includes(filter.toLowerCase())) {
+            if(count > 30) break; // Limit items to prevent UI lag
             const isSelected = item.symbol === activePair ? "active" : "";
             const changeColor = item.change.includes("+") ? "text-green" : "color: #f6465d;";
-            container.innerHTML += `
+            html += `
                 <div class="market-item ${isSelected}" onclick="selectPair('${item.symbol}', ${item.price})">
                     <strong>${item.symbol}</strong>
                     <span>$${item.price.toFixed(4)}</span>
                     <span class="${changeColor}">${item.change}</span>
                 </div>
             `;
+            count++;
         }
-    });
+    }
+    container.innerHTML = html || `<p class="no-trades">No markets found</p>`;
 }
 
 function filterMarkets() {
@@ -113,17 +132,40 @@ function selectPair(symbol, price) {
 function calculateTrade() {
     const amountInput = document.getElementById('trade-amount');
     const estQtyEl = document.getElementById('est-qty');
+    const tpInput = document.getElementById('tp-price');
+    const slInput = document.getElementById('sl-price');
+    const tpProfitEl = document.getElementById('tp-est-profit');
+    const slLossEl = document.getElementById('sl-est-loss');
+    
     if(!amountInput || !estQtyEl) return;
     const amount = parseFloat(amountInput.value) || 0;
+    
     if(currentPrice > 0) {
         const qty = amount / currentPrice;
         estQtyEl.innerText = qty.toFixed(6);
+
+        // TP / SL estimation preview
+        const tpPrice = parseFloat(tpInput?.value) || 0;
+        const slPrice = parseFloat(slInput?.value) || 0;
+
+        if(tpPrice > 0 && tpProfitEl) {
+            const estProfit = (tpPrice - currentPrice) * qty;
+            tpProfitEl.innerText = `$${estProfit.toFixed(2)}`;
+        } else if(tpProfitEl) { tpProfitEl.innerText = "$0.00"; }
+
+        if(slPrice > 0 && slLossEl) {
+            const estLoss = (currentPrice - slPrice) * qty;
+            slLossEl.innerText = `-$${Math.abs(estLoss).toFixed(2)}`;
+        } else if(slLossEl) { slLossEl.innerText = "$0.00"; }
     }
 }
 
 async function executeTrade(type) {
     const amountInput = document.getElementById('trade-amount');
     const amount = parseFloat(amountInput?.value) || 0;
+    const tpPrice = parseFloat(document.getElementById('tp-price')?.value) || 0;
+    const slPrice = parseFloat(document.getElementById('sl-price')?.value) || 0;
+
     if(amount <= 0 || amount > usdtBalance) {
         showCustomPopup("Insufficient Balance", "Please deposit funds to start trading.");
         return;
@@ -157,7 +199,9 @@ async function executeTrade(type) {
                 type: type,
                 entryPrice: currentPrice,
                 qty: qty,
-                amount: netAmount
+                amount: netAmount,
+                tp: tpPrice,
+                sl: slPrice
             };
 
             activeTrades.push(trade);
@@ -166,18 +210,15 @@ async function executeTrade(type) {
             renderActiveTrades();
             
             playTradeSound();
-            showCustomPopup("Trade Successful! 🚀", `${type} Order Executed Successfully for ${activePair}!\nAmount: $${amount.toFixed(2)}`);
+            showCustomPopup("Trade Successful! 🚀", `${type} Order Executed for ${activePair}!\nAmount: $${amount.toFixed(2)}`);
         } else {
-            console.error("API Error:", result);
-            showCustomPopup("Execution Error", `${result.error?.msg || JSON.stringify(result.error) || 'Failed to execute order'}`);
+            showCustomPopup("Execution Error", `${result.error?.msg || 'Failed to execute order'}`);
         }
     } catch (error) {
-        console.error("Network Error:", error);
         showCustomPopup("Connection Error", "Network connection error while executing trade.");
     }
 }
 
-// Custom Professional Popup Notification
 function showCustomPopup(title, message) {
     let existing = document.getElementById('custom-popup-box');
     if(existing) existing.remove();
@@ -191,28 +232,70 @@ function showCustomPopup(title, message) {
         <button onclick="this.parentElement.remove()" style="background:#f0b90b; border:none; padding:6px 15px; font-weight:bold; border-radius:4px; cursor:pointer; color:#000;">OK</button>
     `;
     document.body.appendChild(box);
-    setTimeout(() => { if(box) box.remove(); }, 5000);
+    setTimeout(() => { if(box) box.remove(); }, 4000);
 }
 
 function renderActiveTrades() {
     const container = document.getElementById('active-trades-container');
     if(!container) return;
     if(activeTrades.length === 0) {
-        container.innerHTML = `<p class="no-trades">No active positions</p>`;
+        container.innerHTML = `<p class="no-trades" style="font-size:0.8rem; color:#848e9c; text-align:center;">No active positions</p>`;
         return;
     }
-    container.innerHTML = "";
+    
+    let html = "";
     activeTrades.forEach((t, index) => {
-        container.innerHTML += `
-            <div style="background:#181a20; padding:8px; border-radius:6px; margin-bottom:6px; font-size:0.8rem; display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <strong>${t.symbol}</strong> (${t.type})<br>
-                    Entry: $${t.entryPrice.toFixed(4)} | Qty: ${t.qty.toFixed(4)}
+        const currentMarketPrice = marketDataList.find(m => m.symbol === t.symbol)?.price || t.entryPrice;
+        const diff = currentMarketPrice - t.entryPrice;
+        const pnl = t.type === 'BUY' ? diff * t.qty : -diff * t.qty;
+        const pnlColor = pnl >= 0 ? "color:#0ecb81;" : "color:#f6465d;";
+        
+        html += `
+            <div style="background:#181a20; padding:10px; border-radius:6px; margin-bottom:8px; font-size:0.8rem; border:1px solid #2b313a;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                    <strong>${t.symbol} (${t.type})</strong>
+                    <span style="${pnlColor} font-weight:bold;">PnL: $${pnl.toFixed(2)}</span>
                 </div>
-                <button class="close-all-btn" onclick="closeTrade(${index})">Close</button>
+                <div>Entry: $${t.entryPrice.toFixed(4)} | Cur: $${currentMarketPrice.toFixed(4)}</div>
+                <div style="color:#848e9c; font-size:0.75rem; margin-top:3px;">TP: ${t.tp || 'None'} | SL: ${t.sl || 'None'}</div>
+                <button class="close-all-btn" style="margin-top:6px; width:100%; padding:5px; background:#f6465d; border:none; color:#fff; border-radius:4px; cursor:pointer;" onclick="closeTrade(${index})">Close Position</button>
             </div>
         `;
     });
+    container.innerHTML = html;
+}
+
+function checkTpSlAndLivePnL() {
+    if(activeTrades.length === 0) return;
+    let updated = false;
+
+    for (let i = activeTrades.length - 1; i >= 0; i--) {
+        const t = activeTrades[i];
+        const curPrice = marketDataList.find(m => m.symbol === t.symbol)?.price;
+        if(!curPrice) continue;
+
+        const diff = curPrice - t.entryPrice;
+        const pnl = t.type === 'BUY' ? diff * t.qty : -diff * t.qty;
+
+        // Check TP hit
+        let tpHit = t.tp > 0 && ((t.type === 'BUY' && curPrice >= t.tp) || (t.type === 'SELL' && curPrice <= t.tp));
+        // Check SL hit
+        let slHit = t.sl > 0 && ((t.type === 'BUY' && curPrice <= t.sl) || (t.type === 'SELL' && curPrice >= t.sl));
+
+        if (tpHit || slHit) {
+            usdtBalance += (t.amount + pnl);
+            activeTrades.splice(i, 1);
+            updated = true;
+            playTradeSound();
+            showCustomPopup(tpHit ? "Take Profit Hit! 🎯" : "Stop Loss Hit! 🛑", `Position closed automatically for ${t.symbol}.\nFinal PnL: $${pnl.toFixed(2)}`);
+        }
+    }
+
+    if(updated) {
+        localStorage.setItem('active_trades', JSON.stringify(activeTrades));
+        updateUI();
+    }
+    renderActiveTrades();
 }
 
 function closeTrade(index) {
@@ -226,6 +309,7 @@ function closeTrade(index) {
     localStorage.setItem('active_trades', JSON.stringify(activeTrades));
     updateUI();
     renderActiveTrades();
+    showCustomPopup("Position Closed", `Trade closed successfully. PnL: $${pnl.toFixed(2)}`);
 }
 
 function openModal(id) {
@@ -262,7 +346,6 @@ function submitWithdrawal() {
     closeModal('withdraw-modal');
 }
 
-// Professional Admin Login Modal Trigger
 function openAdminLogin() {
     let existing = document.getElementById('admin-login-modal');
     if(existing) existing.remove();
@@ -299,6 +382,11 @@ function loadAdminData() {
 
     const feePercentInput = document.getElementById('admin-fee-percent-input');
     if(feePercentInput) feePercentInput.value = platformFeePercent;
+
+    const cryptoInput = document.getElementById('admin-edit-crypto');
+    const epInput = document.getElementById('admin-edit-ep');
+    if(cryptoInput) cryptoInput.value = adminCryptoAddr;
+    if(epInput) epInput.value = adminEasypaisaNum;
     
     // Deposits List with Approve / Reject
     const depContainer = document.getElementById('admin-deposits-list');
@@ -306,7 +394,7 @@ function loadAdminData() {
         depContainer.innerHTML = pendingDeposits.length === 0 ? "<p style='color:#848e9c; font-size:0.75rem; text-align:center;'>No pending deposits</p>" : "";
         pendingDeposits.forEach((d, idx) => {
             depContainer.innerHTML += `
-                <div class="admin-req-item" style="display:flex; justify-content:space-between; align-items:center; background:#181a20; padding:8px; border-radius:5px; margin-bottom:5px; font-size:0.8rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#181a20; padding:8px; border-radius:5px; margin-bottom:5px; font-size:0.8rem;">
                     <span>+${d.amount} USDT</span>
                     <div>
                         <button onclick="approveDeposit(${idx})" style="background:#0ecb81; border:none; color:#fff; padding:4px 8px; border-radius:3px; cursor:pointer; margin-right:4px;">Approve</button>
@@ -317,13 +405,13 @@ function loadAdminData() {
         });
     }
 
-    // Withdrawals List with User Balance info and Approve / Reject
+    // Withdrawals List with Approve / Reject
     const wContainer = document.getElementById('admin-withdrawals-list');
     if(wContainer) {
         wContainer.innerHTML = pendingWithdrawals.length === 0 ? "<p style='color:#848e9c; font-size:0.75rem; text-align:center;'>No pending withdrawals</p>" : "";
         pendingWithdrawals.forEach((w, idx) => {
             wContainer.innerHTML += `
-                <div class="admin-req-item" style="background:#181a20; padding:8px; border-radius:5px; margin-bottom:6px; font-size:0.8rem; display:flex; justify-content:space-between; align-items:center;">
+                <div style="background:#181a20; padding:8px; border-radius:5px; margin-bottom:6px; font-size:0.8rem; display:flex; justify-content:space-between; align-items:center;">
                     <div>
                         <span>-${w.amount} USDT</span><br>
                         <small style="color:#848e9c;">User Bal: $${(w.userBalance || 0).toFixed(2)}</small>
@@ -344,7 +432,17 @@ function updatePlatformFee() {
     if(isNaN(val) || val < 0) { showCustomPopup("Error", "Enter valid percentage"); return; }
     platformFeePercent = val;
     updateUI();
-    showCustomPopup("Updated", `Platform Fee successfully updated to ${platformFeePercent}%`);
+    showCustomPopup("Updated", `Platform Fee updated to ${platformFeePercent}%`);
+}
+
+function saveAdminPaymentDetails() {
+    const cryptoVal = document.getElementById('admin-edit-crypto')?.value.trim();
+    const epVal = document.getElementById('admin-edit-ep')?.value.trim();
+    if(cryptoVal) adminCryptoAddr = cryptoVal;
+    if(epVal) adminEasypaisaNum = epVal;
+    updateUI();
+    loadDepositDetailsToUI();
+    showCustomPopup("Saved", "Deposit credentials updated successfully!");
 }
 
 function approveDeposit(idx) {
@@ -373,15 +471,14 @@ function approveWithdrawal(idx) {
 
 function rejectWithdrawal(idx) {
     const w = pendingWithdrawals[idx];
-    usdtBalance += w.amount; // Refund amount back to user balance on rejection
+    usdtBalance += w.amount; 
     pendingWithdrawals.splice(idx, 1);
     localStorage.setItem('pending_withdrawals', JSON.stringify(pendingWithdrawals));
     updateUI();
     loadAdminData();
-    showCustomPopup("Rejected", "Withdrawal rejected and refunded to user balance.");
+    showCustomPopup("Rejected", "Withdrawal rejected and refunded.");
 }
 
-// Admin profit real withdrawal to personal crypto address
 function withdrawAdminProfit() {
     const addressInput = document.getElementById('admin-withdraw-address');
     const address = addressInput?.value.trim();
@@ -394,7 +491,7 @@ function withdrawAdminProfit() {
     loadAdminData();
     if(addressInput) addressInput.value = "";
     
-    showCustomPopup("Profit Withdrawn! 💸", `Successfully transferred $${withdrawnAmount.toFixed(2)} to your crypto address:\n${address}`);
+    showCustomPopup("Profit Withdrawn! 💸", `Successfully transferred $${withdrawnAmount.toFixed(2)} to your wallet:\n${address}`);
 }
 
 window.onload = initApp;
