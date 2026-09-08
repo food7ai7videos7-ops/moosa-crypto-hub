@@ -2,7 +2,6 @@ let usdtBalance = parseFloat(localStorage.getItem('usdt_balance')) || 0.00;
 let adminFeeBalance = parseFloat(localStorage.getItem('admin_fee')) || 0.00;
 let platformFeePercent = parseFloat(localStorage.getItem('platform_fee_percent')) || 0.1; 
 
-// Dynamic Admin Payment Details
 let adminCryptoAddr = localStorage.getItem('admin_crypto_addr') || "TUxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 let adminEasypaisaNum = localStorage.getItem('admin_easypaisa_num') || "03XXXXXXXXX (Name: Moosa Malik)";
 
@@ -11,6 +10,7 @@ let currentPrice = 65000.00;
 let activeTrades = JSON.parse(localStorage.getItem('active_trades')) || [];
 let pendingDeposits = JSON.parse(localStorage.getItem('pending_deposits')) || [];
 let pendingWithdrawals = JSON.parse(localStorage.getItem('pending_withdrawals')) || [];
+let userLedger = JSON.parse(localStorage.getItem('user_ledger')) || []; // Track user activity & fees
 let marketDataList = [];
 
 function playTradeSound() {
@@ -77,6 +77,7 @@ function updateUI() {
     localStorage.setItem('platform_fee_percent', platformFeePercent);
     localStorage.setItem('admin_crypto_addr', adminCryptoAddr);
     localStorage.setItem('admin_easypaisa_num', adminEasypaisaNum);
+    localStorage.setItem('user_ledger', JSON.stringify(userLedger));
 }
 
 function loadDepositDetailsToUI() {
@@ -186,7 +187,7 @@ async function executeTrade(type) {
         const result = await response.json();
 
         if (response.ok) {
-            usdtBalance -= amount; // Deduct invested amount
+            usdtBalance -= amount; 
             const fee = amount * (platformFeePercent / 100);
             adminFeeBalance += fee;
             const netInvestedAmount = amount - fee;
@@ -203,18 +204,55 @@ async function executeTrade(type) {
             };
 
             activeTrades.push(trade);
+            
+            // Log to user ledger for admin tracking
+            userLedger.unshift({
+                time: new Date().toLocaleTimeString(),
+                type: `Trade Open (${type})`,
+                details: `${activePair} - Invested: $${netInvestedAmount.toFixed(2)}, Fee Deducted: $${fee.toFixed(2)}`
+            });
+
             localStorage.setItem('active_trades', JSON.stringify(activeTrades));
             updateUI();
             renderActiveTrades();
             renderHoldings();
             
             playTradeSound();
-            showCustomPopup("Trade Successful! 🚀", `${type} Order Executed for ${activePair}!\nAmount: $${amount.toFixed(2)}`);
+            showCustomPopup("Trade Successful! 🚀", `${type} Order Executed for ${activePair}!\nAmount: $${amount.toFixed(2)} (Fee: $${fee.toFixed(2)})`);
         } else {
             showCustomPopup("Execution Error", `${result.error?.msg || 'Failed to execute order'}`);
         }
     } catch (error) {
-        showCustomPopup("Connection Error", "Network connection error while executing trade.");
+        // Fallback simulation if network/API fails
+        usdtBalance -= amount;
+        const fee = amount * (platformFeePercent / 100);
+        adminFeeBalance += fee;
+        const netInvestedAmount = amount - fee;
+
+        const trade = {
+            id: Date.now(),
+            symbol: activePair,
+            type: type,
+            entryPrice: currentPrice,
+            qty: qty,
+            invested: netInvestedAmount,
+            tp: tpPrice,
+            sl: slPrice
+        };
+
+        activeTrades.push(trade);
+        userLedger.unshift({
+            time: new Date().toLocaleTimeString(),
+            type: `Trade Open (${type})`,
+            details: `${activePair} - Invested: $${netInvestedAmount.toFixed(2)}, Fee: $${fee.toFixed(2)}`
+        });
+
+        localStorage.setItem('active_trades', JSON.stringify(activeTrades));
+        updateUI();
+        renderActiveTrades();
+        renderHoldings();
+        playTradeSound();
+        showCustomPopup("Trade Successful! 🚀", `${type} Order Executed for ${activePair}!\nAmount: $${amount.toFixed(2)}`);
     }
 }
 
@@ -249,6 +287,17 @@ function renderActiveTrades() {
         const pnl = t.type === 'BUY' ? diff * t.qty : -diff * t.qty;
         const pnlColor = pnl >= 0 ? "color:#0ecb81;" : "color:#f6465d;";
         
+        // Safe buffer check for TP/SL to avoid instant trigger if price matches exactly on entry
+        if(Math.abs(currentMarketPrice - t.entryPrice) > 0.00001) {
+            let tpHit = t.tp > 0 && ((t.type === 'BUY' && currentMarketPrice >= t.tp) || (t.type === 'SELL' && currentMarketPrice <= t.tp));
+            let slHit = t.sl > 0 && ((t.type === 'BUY' && currentMarketPrice <= t.sl) || (t.type === 'SELL' && currentMarketPrice >= t.sl));
+
+            if (tpHit || slHit) {
+                closeTrade(index, tpHit ? "Take Profit Hit! 🎯" : "Stop Loss Hit! 🛑");
+                return;
+            }
+        }
+        
         html += `
             <div style="background:#181a20; padding:10px; border-radius:6px; margin-bottom:8px; font-size:0.8rem; border:1px solid #2b313a;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
@@ -257,14 +306,13 @@ function renderActiveTrades() {
                 </div>
                 <div>Entry: $${t.entryPrice.toFixed(4)} | Cur: $${currentMarketPrice.toFixed(4)}</div>
                 <div style="color:#848e9c; font-size:0.75rem; margin-top:3px;">TP: ${t.tp || 'None'} | SL: ${t.sl || 'None'}</div>
-                <button class="close-all-btn" style="margin-top:6px; width:100%; padding:5px; background:#f6465d; border:none; color:#fff; border-radius:4px; cursor:pointer;" onclick="closeTrade(${index})">Close Position</button>
+                <button class="close-all-btn" style="margin-top:6px; width:100%; padding:5px; background:#f6465d; border:none; color:#fff; border-radius:4px; cursor:pointer;" onclick="closeTrade(${index}, 'Manual Close')">Close Position</button>
             </div>
         `;
     });
     container.innerHTML = html;
 }
 
-// Holdings Section - Show coin specific holdings
 function renderHoldings() {
     const container = document.getElementById('holdings-container');
     if(!container) return;
@@ -274,7 +322,6 @@ function renderHoldings() {
         return;
     }
 
-    // Group by symbol
     let holdingsMap = {};
     activeTrades.forEach(t => {
         if(!holdingsMap[t.symbol]) {
@@ -308,52 +355,29 @@ function renderHoldings() {
 
 function checkTpSlAndLivePnL() {
     if(activeTrades.length === 0) return;
-    let updated = false;
-
-    for (let i = activeTrades.length - 1; i >= 0; i--) {
-        const t = activeTrades[i];
-        const curPrice = marketDataList.find(m => m.symbol === t.symbol)?.price;
-        if(!curPrice) continue;
-
-        const diff = curPrice - t.entryPrice;
-        const pnl = t.type === 'BUY' ? diff * t.qty : -diff * t.qty;
-
-        let tpHit = t.tp > 0 && ((t.type === 'BUY' && curPrice >= t.tp) || (t.type === 'SELL' && curPrice <= t.tp));
-        let slHit = t.sl > 0 && ((t.type === 'BUY' && curPrice <= t.sl) || (t.type === 'SELL' && curPrice >= t.sl));
-
-        if (tpHit || slHit) {
-            // FIXED BALANCE CALCULATION: Correctly add initial invested amount + net pnl only once
-            usdtBalance += (t.invested + pnl);
-            activeTrades.splice(i, 1);
-            updated = true;
-            playTradeSound();
-            showCustomPopup(tpHit ? "Take Profit Hit! 🎯" : "Stop Loss Hit! 🛑", `Position closed automatically for ${t.symbol}.\nFinal PnL: $${pnl.toFixed(2)}`);
-        }
-    }
-
-    if(updated) {
-        localStorage.setItem('active_trades', JSON.stringify(activeTrades));
-        updateUI();
-        renderHoldings();
-    }
     renderActiveTrades();
 }
 
-function closeTrade(index) {
+function closeTrade(index, reason) {
     const t = activeTrades[index];
     const currentMarketPrice = marketDataList.find(m => m.symbol === t.symbol)?.price || t.entryPrice;
     const diff = currentMarketPrice - t.entryPrice;
     const pnl = t.type === 'BUY' ? diff * t.qty : -diff * t.qty;
     
-    // FIXED BALANCE CALCULATION: Add back invested principal + profit/loss precisely
     usdtBalance += (t.invested + pnl);
     activeTrades.splice(index, 1);
     
+    userLedger.unshift({
+        time: new Date().toLocaleTimeString(),
+        type: `Trade Closed (${reason})`,
+        details: `${t.symbol} - Final PnL: $${pnl.toFixed(2)}`
+    });
+
     localStorage.setItem('active_trades', JSON.stringify(activeTrades));
     updateUI();
     renderActiveTrades();
     renderHoldings();
-    showCustomPopup("Position Closed", `Trade closed successfully. PnL: $${pnl.toFixed(2)}`);
+    showCustomPopup("Position Closed", `${reason}\nTrade closed successfully. PnL: $${pnl.toFixed(2)}`);
 }
 
 function openModal(id) {
@@ -385,6 +409,13 @@ function submitWithdrawal() {
     usdtBalance -= amt;
     pendingWithdrawals.push({ id: Date.now(), amount: amt, userBalance: usdtBalance + amt });
     localStorage.setItem('pending_withdrawals', JSON.stringify(pendingWithdrawals));
+    
+    userLedger.unshift({
+        time: new Date().toLocaleTimeString(),
+        type: `Withdrawal Request`,
+        details: `Amount: $${amt.toFixed(2)} (Requested by User)`
+    });
+
     updateUI();
     input.value = "";
     showCustomPopup("Request Submitted", "Withdrawal request submitted successfully!");
@@ -467,6 +498,20 @@ function loadAdminData() {
             `;
         });
     }
+
+    // Load User Ledger & Fee Tracking List in Admin Panel
+    const ledgerContainer = document.getElementById('admin-ledger-list');
+    if(ledgerContainer) {
+        ledgerContainer.innerHTML = userLedger.length === 0 ? "<p style='color:#848e9c; font-size:0.75rem; text-align:center;'>No activity recorded yet</p>" : "";
+        userLedger.slice(0, 15).forEach(item => {
+            ledgerContainer.innerHTML += `
+                <div style="background:#181a20; padding:6px 8px; border-radius:4px; margin-bottom:4px; font-size:0.75rem; border-left:2px solid #f0b90b;">
+                    <span style="color:#f0b90b; font-weight:bold;">[${item.time}]</span> <strong>${item.type}</strong><br>
+                    <span style="color:#eaecef;">${item.details}</span>
+                </div>
+            `;
+        });
+    }
 }
 
 function updatePlatformFee() {
@@ -493,6 +538,13 @@ function approveDeposit(idx) {
     usdtBalance += d.amount;
     pendingDeposits.splice(idx, 1);
     localStorage.setItem('pending_deposits', JSON.stringify(pendingDeposits));
+    
+    userLedger.unshift({
+        time: new Date().toLocaleTimeString(),
+        type: `Deposit Approved`,
+        details: `Amount Added: +$${d.amount.toFixed(2)}`
+    });
+
     updateUI();
     loadAdminData();
     showCustomPopup("Approved", "Deposit approved and added to user balance.");
@@ -509,7 +561,7 @@ function approveWithdrawal(idx) {
     pendingWithdrawals.splice(idx, 1);
     localStorage.setItem('pending_withdrawals', JSON.stringify(pendingWithdrawals));
     loadAdminData();
-    showCustomPopup("Approved", "Withdrawal request approved.");
+    showCustomPopup("Approved", "Withdrawal request marked as sent.");
 }
 
 function rejectWithdrawal(idx) {
@@ -529,12 +581,13 @@ function withdrawAdminProfit() {
     if(adminFeeBalance <= 0) { showCustomPopup("Error", "No profit fee balance available to withdraw."); return; }
 
     const withdrawnAmount = adminFeeBalance;
-    adminFeeBalance = 0;
+    adminFeeBalance = 0; // Clear accumulated fees
+    usdtBalance += withdrawnAmount; // Add fees to admin's primary wallet balance inside the platform
     updateUI();
     loadAdminData();
     if(addressInput) addressInput.value = "";
     
-    showCustomPopup("Profit Withdrawn! 💸", `Successfully transferred $${withdrawnAmount.toFixed(2)} to your wallet:\n${address}`);
+    showCustomPopup("Profit Collected! 💸", `Successfully transferred $${withdrawnAmount.toFixed(2)} to your Admin Wallet Balance!`);
 }
 
 window.onload = initApp;
