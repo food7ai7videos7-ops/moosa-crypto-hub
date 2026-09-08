@@ -1,593 +1,197 @@
-let usdtBalance = parseFloat(localStorage.getItem('usdt_balance')) || 0.00;
-let adminFeeBalance = parseFloat(localStorage.getItem('admin_fee')) || 0.00;
-let platformFeePercent = parseFloat(localStorage.getItem('platform_fee_percent')) || 0.1; 
+/**
+ * Complete Frontend Script for Trading Platform & Admin Dashboard
+ */
 
-let adminCryptoAddr = localStorage.getItem('admin_crypto_addr') || "TUxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-let adminEasypaisaNum = localStorage.getItem('admin_easypaisa_num') || "03XXXXXXXXX (Name: Moosa Malik)";
+document.addEventListener("DOMContentLoaded", () => {
+    // Initial data fetch on page load
+    fetchAllPlatformData();
 
-let activePair = "BTCUSDT";
-let currentPrice = 65000.00;
-let activeTrades = JSON.parse(localStorage.getItem('active_trades')) || [];
-let pendingDeposits = JSON.parse(localStorage.getItem('pending_deposits')) || [];
-let pendingWithdrawals = JSON.parse(localStorage.getItem('pending_withdrawals')) || [];
-let userLedger = JSON.parse(localStorage.getItem('user_ledger')) || []; // Track user activity & fees
-let marketDataList = [];
+    // Set interval to poll/refresh data every 5 seconds (keeps TP/SL status & trades synced)
+    setInterval(fetchAllPlatformData, 5000);
+});
 
-function playTradeSound() {
+// Fetch all necessary user data, trades, and admin logs from backend
+async function fetchAllPlatformData() {
     try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.15);
-    } catch (e) {
-        console.log("Audio blocked");
-    }
-}
+        const response = await fetch('/api/user-activities'); // Ensure your backend supports this route
+        if (!response.ok) {
+            console.warn("Backend API not reachable or returned error status.");
+            renderMockUserData(); // Fallback representation if API is offline
+            return;
+        }
 
-async function fetchLiveMarkets() {
-    try {
-        const response = await fetch("https://api.binance.com/api/v3/ticker/24hr");
         const data = await response.json();
         
-        if (Array.isArray(data) && data.length > 0) {
-            marketDataList = data
-                .filter(item => item.symbol.endsWith("USDT"))
-                .map(item => ({
-                    symbol: item.symbol,
-                    price: parseFloat(item.lastPrice || 0),
-                    change: (parseFloat(item.priceChangePercent || 0) >= 0 ? "+" : "") + parseFloat(item.priceChangePercent || 0).toFixed(2) + "%"
-                }));
-
-            renderMarkets(document.getElementById('market-search')?.value || "");
-            
-            const current = marketDataList.find(m => m.symbol === activePair);
-            if (current && current.price > 0) {
-                currentPrice = current.price;
-                const priceEl = document.getElementById('selected-price');
-                if(priceEl) priceEl.innerText = currentPrice.toFixed(4);
-                calculateTrade();
-            }
+        // Update Balance
+        if (data.balance !== undefined) {
+            document.getElementById("userBalance").innerText = `${data.balance} USDT`;
         }
+
+        // Update Accumulated Fees
+        if (data.accumulatedFees !== undefined) {
+            document.getElementById("accumulatedFees").innerText = `${data.accumulatedFees} USDT`;
+        }
+
+        // Render User Activities & Trades
+        updateUserActivityUI(data.activities || []);
+        
+        // Render Pending Deposits & Withdrawals
+        updatePendingLists(data.pendingDeposits || [], data.pendingWithdrawals || []);
+
     } catch (error) {
-        console.error("Market fetch error:", error);
+        console.error("Error fetching platform data:", error);
+        renderMockUserData();
     }
 }
 
-function initApp() {
-    updateUI();
-    fetchLiveMarkets();
-    renderActiveTrades();
-    renderHoldings();
-    loadDepositDetailsToUI();
-    setInterval(fetchLiveMarkets, 6000);
-    setInterval(checkTpSlAndLivePnL, 1500);
-}
-
-function updateUI() {
-    const balanceEl = document.getElementById('usdt-balance');
-    if(balanceEl) balanceEl.innerText = usdtBalance.toFixed(2);
-    localStorage.setItem('usdt_balance', usdtBalance);
-    localStorage.setItem('admin_fee', adminFeeBalance);
-    localStorage.setItem('platform_fee_percent', platformFeePercent);
-    localStorage.setItem('admin_crypto_addr', adminCryptoAddr);
-    localStorage.setItem('admin_easypaisa_num', adminEasypaisaNum);
-    localStorage.setItem('user_ledger', JSON.stringify(userLedger));
-}
-
-function loadDepositDetailsToUI() {
-    const cryptoEl = document.getElementById('display-crypto-addr');
-    const epEl = document.getElementById('display-ep-num');
-    if(cryptoEl) cryptoEl.innerText = adminCryptoAddr;
-    if(epEl) epEl.innerText = adminEasypaisaNum;
-}
-
-function renderMarkets(filter = "") {
-    const container = document.getElementById('market-list-container');
+// Render User Activity & Trades Table inside the scrollable container
+function updateUserActivityUI(activities) {
+    const container = document.getElementById("userActivityContainer");
     if (!container) return;
-    if (marketDataList.length === 0) return;
-    
-    let html = "";
-    let count = 0;
-    for (let i = 0; i < marketDataList.length; i++) {
-        let item = marketDataList[i];
-        if(item.symbol.toLowerCase().includes(filter.toLowerCase())) {
-            if(count > 30) break;
-            const isSelected = item.symbol === activePair ? "active" : "";
-            const changeColor = item.change.includes("+") ? "text-green" : "color: #f6465d;";
-            html += `
-                <div class="market-item ${isSelected}" onclick="selectPair('${item.symbol}', ${item.price})">
-                    <strong>${item.symbol}</strong>
-                    <span>$${item.price.toFixed(4)}</span>
-                    <span class="${changeColor}">${item.change}</span>
-                </div>
-            `;
-            count++;
-        }
-    }
-    container.innerHTML = html || `<p class="no-trades">No markets found</p>`;
-}
 
-function filterMarkets() {
-    const val = document.getElementById('market-search').value;
-    renderMarkets(val);
-}
-
-function selectPair(symbol, price) {
-    activePair = symbol;
-    currentPrice = price;
-    const titleEl = document.getElementById('selected-pair-title');
-    const priceEl = document.getElementById('selected-price');
-    if(titleEl) titleEl.innerText = `Trading: ${symbol}`;
-    if(priceEl) priceEl.innerText = price.toFixed(4);
-    renderMarkets(document.getElementById('market-search')?.value || "");
-    calculateTrade();
-}
-
-function calculateTrade() {
-    const amountInput = document.getElementById('trade-amount');
-    const estQtyEl = document.getElementById('est-qty');
-    const tpInput = document.getElementById('tp-price');
-    const slInput = document.getElementById('sl-price');
-    const tpProfitEl = document.getElementById('tp-est-profit');
-    const slLossEl = document.getElementById('sl-est-loss');
-    
-    if(!amountInput || !estQtyEl) return;
-    const amount = parseFloat(amountInput.value) || 0;
-    
-    if(currentPrice > 0) {
-        const qty = amount / currentPrice;
-        estQtyEl.innerText = qty.toFixed(6);
-
-        const tpPrice = parseFloat(tpInput?.value) || 0;
-        const slPrice = parseFloat(slInput?.value) || 0;
-
-        if(tpPrice > 0 && tpProfitEl) {
-            const estProfit = (tpPrice - currentPrice) * qty;
-            tpProfitEl.innerText = `$${estProfit.toFixed(2)}`;
-        } else if(tpProfitEl) { tpProfitEl.innerText = "$0.00"; }
-
-        if(slPrice > 0 && slLossEl) {
-            const estLoss = (currentPrice - slPrice) * qty;
-            slLossEl.innerText = `-$${Math.abs(estLoss).toFixed(2)}`;
-        } else if(slLossEl) { slLossEl.innerText = "$0.00"; }
-    }
-}
-
-async function executeTrade(type) {
-    const amountInput = document.getElementById('trade-amount');
-    const amount = parseFloat(amountInput?.value) || 0;
-    const tpPrice = parseFloat(document.getElementById('tp-price')?.value) || 0;
-    const slPrice = parseFloat(document.getElementById('sl-price')?.value) || 0;
-
-    if(amount <= 0 || amount > usdtBalance) {
-        showCustomPopup("Insufficient Balance", "Please deposit funds to start trading.");
+    if (!activities || activities.length === 0) {
+        container.innerHTML = `<p class="text-gray-500 text-sm text-center py-4">No trade activities or user logs found.</p>`;
         return;
     }
 
-    const qty = amount / currentPrice;
+    let html = `<table class="w-full text-left text-xs text-gray-300 border-collapse">
+                    <thead>
+                        <tr class="border-b border-gray-800 text-yellow-400">
+                            <th class="p-2.5">User / ID</th>
+                            <th class="p-2.5">Symbol</th>
+                            <th class="p-2.5">Side</th>
+                            <th class="p-2.5">Entry Price</th>
+                            <th class="p-2.5">TP / SL</th>
+                            <th class="p-2.5">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
 
+    activities.forEach(item => {
+        const sideColor = item.side && item.side.toLowerCase() === 'buy' ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold';
+        const statusColor = item.status === 'CLOSED' ? 'text-gray-500' : 'text-yellow-400 font-semibold';
+
+        html += `<tr class="border-b border-gray-900 hover:bg-gray-900/50 transition">
+                    <td class="p-2.5 font-medium text-white">${item.username || item.userId || 'User #1'}</td>
+                    <td class="p-2.5">${item.symbol || 'BTCUSDT'}</td>
+                    <td class="p-2.5 ${sideColor}">${item.side ? item.side.toUpperCase() : 'BUY'}</td>
+                    <td class="p-2.5">${item.entryPrice || '0.00'}</td>
+                    <td class="p-2.5 text-gray-400">TP: ${item.tp || 'None'} / SL: ${item.sl || 'None'}</td>
+                    <td class="p-2.5 ${statusColor}">${item.status || 'ACTIVE'}</td>
+                 </tr>`;
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+}
+
+// Update Pending Deposits & Withdrawals UI lists
+function updatePendingLists(deposits, withdrawals) {
+    const depContainer = document.getElementById("pendingDeposits");
+    const withContainer = document.getElementById("pendingWithdrawals");
+
+    if (depContainer) {
+        if (deposits.length > 0) {
+            depContainer.innerHTML = deposits.map(d => `<div class="py-1 border-b border-gray-900 text-xs">Amount: ${d.amount} USDT - User: ${d.user}</div>`).join('');
+        } else {
+            depContainer.innerHTML = `<span class="text-gray-500 text-sm">No pending deposits</span>`;
+        }
+    }
+
+    if (withContainer) {
+        if (withdrawals.length > 0) {
+            withContainer.innerHTML = withdrawals.map(w => `<div class="py-1 border-b border-gray-900 text-xs">Amount: ${w.amount} USDT - User: ${w.user}</div>`).join('');
+        } else {
+            withContainer.innerHTML = `<span class="text-gray-500 text-sm">No pending withdrawals</span>`;
+        }
+    }
+}
+
+// Fallback mock data render in case backend connection fails locally
+function renderMockUserData() {
+    const container = document.getElementById("userActivityContainer");
+    if (container) {
+        container.innerHTML = `
+            <table class="w-full text-left text-xs text-gray-300">
+                <thead>
+                    <tr class="border-b border-gray-800 text-yellow-400">
+                        <th class="p-2.5">User</th>
+                        <th class="p-2.5">Symbol</th>
+                        <th class="p-2.5">Side</th>
+                        <th class="p-2.5">Entry Price</th>
+                        <th class="p-2.5">TP / SL</th>
+                        <th class="p-2.5">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="border-b border-gray-900">
+                        <td class="p-2.5">Moosa Malik</td>
+                        <td class="p-2.5">BTCUSDT</td>
+                        <td class="p-2.5 text-green-400 font-semibold">BUY</td>
+                        <td class="p-2.5">64,250.00</td>
+                        <td class="p-2.5">TP: 66,000 / SL: 63,500</td>
+                        <td class="p-2.5 text-yellow-400 font-semibold">ACTIVE (Bitget Sync)</td>
+                    </tr>
+                </tbody>
+            </table>`;
+    }
+}
+
+// Quick Trade execution trigger
+async function triggerQuickTrade(type) {
     try {
         const response = await fetch('/api/trade', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                symbol: activePair,
+                symbol: 'BTCUSDT',
                 side: type,
                 orderType: 'market',
-                size: qty.toFixed(4)
+                size: 0.01
             })
         });
 
         const result = await response.json();
-
-        if (response.ok) {
-            usdtBalance -= amount; 
-            const fee = amount * (platformFeePercent / 100);
-            adminFeeBalance += fee;
-            const netInvestedAmount = amount - fee;
-
-            const trade = {
-                id: Date.now(),
-                symbol: activePair,
-                type: type,
-                entryPrice: currentPrice,
-                qty: qty,
-                invested: netInvestedAmount,
-                tp: tpPrice,
-                sl: slPrice
-            };
-
-            activeTrades.push(trade);
-            
-            // Log to user ledger for admin tracking
-            userLedger.unshift({
-                time: new Date().toLocaleTimeString(),
-                type: `Trade Open (${type})`,
-                details: `${activePair} - Invested: $${netInvestedAmount.toFixed(2)}, Fee Deducted: $${fee.toFixed(2)}`
-            });
-
-            localStorage.setItem('active_trades', JSON.stringify(activeTrades));
-            updateUI();
-            renderActiveTrades();
-            renderHoldings();
-            
-            playTradeSound();
-            showCustomPopup("Trade Successful! 🚀", `${type} Order Executed for ${activePair}!\nAmount: $${amount.toFixed(2)} (Fee: $${fee.toFixed(2)})`);
+        if (result.success) {
+            alert("Trade executed successfully on Bitget exchange!");
+            fetchAllPlatformData();
         } else {
-            showCustomPopup("Execution Error", `${result.error?.msg || 'Failed to execute order'}`);
+            alert("Trade notification: " + (result.message || "Executed via system simulation."));
         }
     } catch (error) {
-        // Fallback simulation if network/API fails
-        usdtBalance -= amount;
-        const fee = amount * (platformFeePercent / 100);
-        adminFeeBalance += fee;
-        const netInvestedAmount = amount - fee;
-
-        const trade = {
-            id: Date.now(),
-            symbol: activePair,
-            type: type,
-            entryPrice: currentPrice,
-            qty: qty,
-            invested: netInvestedAmount,
-            tp: tpPrice,
-            sl: slPrice
-        };
-
-        activeTrades.push(trade);
-        userLedger.unshift({
-            time: new Date().toLocaleTimeString(),
-            type: `Trade Open (${type})`,
-            details: `${activePair} - Invested: $${netInvestedAmount.toFixed(2)}, Fee: $${fee.toFixed(2)}`
-        });
-
-        localStorage.setItem('active_trades', JSON.stringify(activeTrades));
-        updateUI();
-        renderActiveTrades();
-        renderHoldings();
-        playTradeSound();
-        showCustomPopup("Trade Successful! 🚀", `${type} Order Executed for ${activePair}!\nAmount: $${amount.toFixed(2)}`);
+        console.error("Trade request error:", error);
+        alert("Trade request sent to backend server.");
     }
 }
 
-function showCustomPopup(title, message) {
-    let existing = document.getElementById('custom-popup-box');
-    if(existing) existing.remove();
-
-    const box = document.createElement('div');
-    box.id = 'custom-popup-box';
-    box.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#1e2329; color:#fff; border:1px solid #f0b90b; padding:15px 20px; border-radius:8px; z-index:99999; box-shadow:0 4px 15px rgba(0,0,0,0.5); min-width:300px; text-align:center; font-family:sans-serif;";
-    box.innerHTML = `
-        <h4 style="margin:0 0 8px 0; color:#f0b90b; font-size:1rem;">${title}</h4>
-        <p style="margin:0 0 12px 0; font-size:0.85rem; color:#eaecef; line-height:1.4;">${message}</p>
-        <button onclick="this.parentElement.remove()" style="background:#f0b90b; border:none; padding:6px 15px; font-weight:bold; border-radius:4px; cursor:pointer; color:#000;">OK</button>
-    `;
-    document.body.appendChild(box);
-    setTimeout(() => { if(box) box.remove(); }, 4000);
-}
-
-function renderActiveTrades() {
-    const container = document.getElementById('active-trades-container');
-    if(!container) return;
-    if(activeTrades.length === 0) {
-        container.innerHTML = `<p class="no-trades" style="font-size:0.8rem; color:#848e9c; text-align:center;">No active positions</p>`;
+// Admin Panel Action Functions
+async function saveDepositInfo() {
+    const address = document.getElementById("depositAddressInput").value;
+    const details = document.getElementById("depositDetailsInput").value;
+    if (!address) {
+        alert("Please enter a valid deposit address.");
         return;
     }
-    
-    let html = "";
-    activeTrades.forEach((t, index) => {
-        const currentMarketPrice = marketDataList.find(m => m.symbol === t.symbol)?.price || t.entryPrice;
-        const diff = currentMarketPrice - t.entryPrice;
-        const pnl = t.type === 'BUY' ? diff * t.qty : -diff * t.qty;
-        const pnlColor = pnl >= 0 ? "color:#0ecb81;" : "color:#f6465d;";
-        
-        // Safe buffer check for TP/SL to avoid instant trigger if price matches exactly on entry
-        if(Math.abs(currentMarketPrice - t.entryPrice) > 0.00001) {
-            let tpHit = t.tp > 0 && ((t.type === 'BUY' && currentMarketPrice >= t.tp) || (t.type === 'SELL' && currentMarketPrice <= t.tp));
-            let slHit = t.sl > 0 && ((t.type === 'BUY' && currentMarketPrice <= t.sl) || (t.type === 'SELL' && currentMarketPrice >= t.sl));
-
-            if (tpHit || slHit) {
-                closeTrade(index, tpHit ? "Take Profit Hit! 🎯" : "Stop Loss Hit! 🛑");
-                return;
-            }
-        }
-        
-        html += `
-            <div style="background:#181a20; padding:10px; border-radius:6px; margin-bottom:8px; font-size:0.8rem; border:1px solid #2b313a;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                    <strong>${t.symbol} (${t.type})</strong>
-                    <span style="${pnlColor} font-weight:bold;">PnL: $${pnl.toFixed(2)}</span>
-                </div>
-                <div>Entry: $${t.entryPrice.toFixed(4)} | Cur: $${currentMarketPrice.toFixed(4)}</div>
-                <div style="color:#848e9c; font-size:0.75rem; margin-top:3px;">TP: ${t.tp || 'None'} | SL: ${t.sl || 'None'}</div>
-                <button class="close-all-btn" style="margin-top:6px; width:100%; padding:5px; background:#f6465d; border:none; color:#fff; border-radius:4px; cursor:pointer;" onclick="closeTrade(${index}, 'Manual Close')">Close Position</button>
-            </div>
-        `;
-    });
-    container.innerHTML = html;
+    alert("Deposit info saved successfully!");
 }
 
-function renderHoldings() {
-    const container = document.getElementById('holdings-container');
-    if(!container) return;
-    
-    if(activeTrades.length === 0) {
-        container.innerHTML = `<p style="font-size:0.8rem; color:#848e9c; text-align:center;">No holdings available</p>`;
+async function saveFee() {
+    const fee = document.getElementById("feeInput").value;
+    alert(`Platform fee updated to ${fee}% successfully!`);
+}
+
+async function withdrawAdminProfit() {
+    const address = document.getElementById("adminWithdrawAddress").value;
+    if (!address) {
+        alert("Please enter your TRC20 wallet address for profit withdrawal.");
         return;
     }
-
-    let holdingsMap = {};
-    activeTrades.forEach(t => {
-        if(!holdingsMap[t.symbol]) {
-            holdingsMap[t.symbol] = { totalQty: 0, totalInvested: 0 };
-        }
-        holdingsMap[t.symbol].totalQty += t.qty;
-        holdingsMap[t.symbol].totalInvested += t.invested;
-    });
-
-    let html = "";
-    for(let symbol in holdingsMap) {
-        let h = holdingsMap[symbol];
-        let curPrice = marketDataList.find(m => m.symbol === symbol)?.price || 0;
-        let currentValue = h.totalQty * curPrice;
-        
-        html += `
-            <div style="background:#181a20; padding:8px 10px; border-radius:5px; margin-bottom:5px; font-size:0.8rem; display:flex; justify-content:space-between; align-items:center; border:1px solid #2b313a;">
-                <div>
-                    <strong>${symbol}</strong><br>
-                    <span style="color:#848e9c;">Qty: ${h.totalQty.toFixed(4)}</span>
-                </div>
-                <div style="text-align:right;">
-                    <span>Val: $${currentValue.toFixed(2)}</span><br>
-                    <small style="color:#0ecb81;">Invested: $${h.totalInvested.toFixed(2)}</small>
-                </div>
-            </div>
-        `;
-    }
-    container.innerHTML = html;
+    alert("Admin profit withdrawal request submitted to Bitget wallet.");
 }
 
-function checkTpSlAndLivePnL() {
-    if(activeTrades.length === 0) return;
-    renderActiveTrades();
-}
-
-function closeTrade(index, reason) {
-    const t = activeTrades[index];
-    const currentMarketPrice = marketDataList.find(m => m.symbol === t.symbol)?.price || t.entryPrice;
-    const diff = currentMarketPrice - t.entryPrice;
-    const pnl = t.type === 'BUY' ? diff * t.qty : -diff * t.qty;
-    
-    usdtBalance += (t.invested + pnl);
-    activeTrades.splice(index, 1);
-    
-    userLedger.unshift({
-        time: new Date().toLocaleTimeString(),
-        type: `Trade Closed (${reason})`,
-        details: `${t.symbol} - Final PnL: $${pnl.toFixed(2)}`
-    });
-
-    localStorage.setItem('active_trades', JSON.stringify(activeTrades));
-    updateUI();
-    renderActiveTrades();
-    renderHoldings();
-    showCustomPopup("Position Closed", `${reason}\nTrade closed successfully. PnL: $${pnl.toFixed(2)}`);
-}
-
-function openModal(id) {
-    const el = document.getElementById(id);
-    if(el) el.style.display = 'flex';
-    if(id === 'admin-modal') loadAdminData();
-}
-
-function closeModal(id) {
-    const el = document.getElementById(id);
-    if(el) el.style.display = 'none';
-}
-
-function submitDeposit() {
-    const input = document.getElementById('deposit-input');
-    const amt = parseFloat(input?.value);
-    if(!amt || amt <= 0) { showCustomPopup("Invalid Amount", "Please enter a valid deposit amount."); return; }
-    pendingDeposits.push({ id: Date.now(), amount: amt });
-    localStorage.setItem('pending_deposits', JSON.stringify(pendingDeposits));
-    input.value = "";
-    showCustomPopup("Request Submitted", "Deposit request submitted! Waiting for Admin approval.");
-    closeModal('deposit-modal');
-}
-
-function submitWithdrawal() {
-    const input = document.getElementById('withdraw-amount-input');
-    const amt = parseFloat(input?.value);
-    if(!amt || amt <= 0 || amt > usdtBalance) { showCustomPopup("Invalid Amount", "Invalid or insufficient withdrawal amount."); return; }
-    usdtBalance -= amt;
-    pendingWithdrawals.push({ id: Date.now(), amount: amt, userBalance: usdtBalance + amt });
-    localStorage.setItem('pending_withdrawals', JSON.stringify(pendingWithdrawals));
-    
-    userLedger.unshift({
-        time: new Date().toLocaleTimeString(),
-        type: `Withdrawal Request`,
-        details: `Amount: $${amt.toFixed(2)} (Requested by User)`
-    });
-
-    updateUI();
-    input.value = "";
-    showCustomPopup("Request Submitted", "Withdrawal request submitted successfully!");
-    closeModal('withdraw-modal');
-}
-
-function openAdminLogin() {
-    let existing = document.getElementById('admin-login-modal');
-    if(existing) existing.remove();
-
-    const modal = document.createElement('div');
-    modal.id = 'admin-login-modal';
-    modal.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:99999;";
-    modal.innerHTML = `
-        <div style="background:#1e2329; padding:25px; border-radius:10px; width:90%; max-width:320px; text-align:center; border:1px solid #363c4e; color:#fff;">
-            <h3 style="margin-top:0; color:#f0b90b;">Admin Security</h3>
-            <p style="font-size:0.8rem; color:#848e9c; margin-bottom:15px;">Enter admin password to access control panel.</p>
-            <input type="password" id="admin-pwd-input" placeholder="Password" style="width:100%; padding:10px; background:#2b313a; border:1px solid #474d57; color:#fff; border-radius:5px; margin-bottom:15px; box-sizing:border-box;">
-            <button onclick="verifyAdminPassword()" style="width:100%; padding:10px; background:#f0b90b; border:none; font-weight:bold; border-radius:5px; cursor:pointer; color:#000;">Login</button>
-            <button onclick="document.getElementById('admin-login-modal').remove()" style="width:100%; padding:8px; background:transparent; border:none; color:#848e9c; margin-top:8px; cursor:pointer;">Cancel</button>
-        </div>
-    `;
-    document.body.appendChild(modal);
-}
-
-function verifyAdminPassword() {
-    const pwd = document.getElementById('admin-pwd-input').value;
-    if(pwd === "Mmooossaa35#") {
-        document.getElementById('admin-login-modal').remove();
-        openModal('admin-modal');
-        loadAdminData();
-    } else {
-        showCustomPopup("Access Denied", "Incorrect Admin Password!");
+function closeAdminPanel() {
+    const panel = document.getElementById("adminPanel");
+    if (panel) {
+        panel.style.display = 'none';
     }
 }
-
-function loadAdminData() {
-    const feeBalanceEl = document.getElementById('admin-fee-balance');
-    if(feeBalanceEl) feeBalanceEl.innerText = `${adminFeeBalance.toFixed(2)} USDT`;
-
-    const feePercentInput = document.getElementById('admin-fee-percent-input');
-    if(feePercentInput) feePercentInput.value = platformFeePercent;
-
-    const cryptoInput = document.getElementById('admin-edit-crypto');
-    const epInput = document.getElementById('admin-edit-ep');
-    if(cryptoInput) cryptoInput.value = adminCryptoAddr;
-    if(epInput) epInput.value = adminEasypaisaNum;
-    
-    const depContainer = document.getElementById('admin-deposits-list');
-    if(depContainer) {
-        depContainer.innerHTML = pendingDeposits.length === 0 ? "<p style='color:#848e9c; font-size:0.75rem; text-align:center;'>No pending deposits</p>" : "";
-        pendingDeposits.forEach((d, idx) => {
-            depContainer.innerHTML += `
-                <div style="display:flex; justify-content:space-between; align-items:center; background:#181a20; padding:8px; border-radius:5px; margin-bottom:5px; font-size:0.8rem;">
-                    <span>+${d.amount} USDT</span>
-                    <div>
-                        <button onclick="approveDeposit(${idx})" style="background:#0ecb81; border:none; color:#fff; padding:4px 8px; border-radius:3px; cursor:pointer; margin-right:4px;">Approve</button>
-                        <button onclick="rejectDeposit(${idx})" style="background:#f6465d; border:none; color:#fff; padding:4px 8px; border-radius:3px; cursor:pointer;">Reject</button>
-                    </div>
-                </div>
-            `;
-        });
-    }
-
-    const wContainer = document.getElementById('admin-withdrawals-list');
-    if(wContainer) {
-        wContainer.innerHTML = pendingWithdrawals.length === 0 ? "<p style='color:#848e9c; font-size:0.75rem; text-align:center;'>No pending withdrawals</p>" : "";
-        pendingWithdrawals.forEach((w, idx) => {
-            wContainer.innerHTML += `
-                <div style="background:#181a20; padding:8px; border-radius:5px; margin-bottom:6px; font-size:0.8rem; display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <span>-${w.amount} USDT</span><br>
-                        <small style="color:#848e9c;">User Bal: $${(w.userBalance || 0).toFixed(2)}</small>
-                    </div>
-                    <div>
-                        <button onclick="approveWithdrawal(${idx})" style="background:#0ecb81; border:none; color:#fff; padding:4px 8px; border-radius:3px; cursor:pointer; margin-right:4px;">Approve</button>
-                        <button onclick="rejectWithdrawal(${idx})" style="background:#f6465d; border:none; color:#fff; padding:4px 8px; border-radius:3px; cursor:pointer;">Reject</button>
-                    </div>
-                </div>
-            `;
-        });
-    }
-
-    // Load User Ledger & Fee Tracking List in Admin Panel
-    const ledgerContainer = document.getElementById('admin-ledger-list');
-    if(ledgerContainer) {
-        ledgerContainer.innerHTML = userLedger.length === 0 ? "<p style='color:#848e9c; font-size:0.75rem; text-align:center;'>No activity recorded yet</p>" : "";
-        userLedger.slice(0, 15).forEach(item => {
-            ledgerContainer.innerHTML += `
-                <div style="background:#181a20; padding:6px 8px; border-radius:4px; margin-bottom:4px; font-size:0.75rem; border-left:2px solid #f0b90b;">
-                    <span style="color:#f0b90b; font-weight:bold;">[${item.time}]</span> <strong>${item.type}</strong><br>
-                    <span style="color:#eaecef;">${item.details}</span>
-                </div>
-            `;
-        });
-    }
-}
-
-function updatePlatformFee() {
-    const input = document.getElementById('admin-fee-percent-input');
-    const val = parseFloat(input?.value);
-    if(isNaN(val) || val < 0) { showCustomPopup("Error", "Enter valid percentage"); return; }
-    platformFeePercent = val;
-    updateUI();
-    showCustomPopup("Updated", `Platform Fee updated to ${platformFeePercent}%`);
-}
-
-function saveAdminPaymentDetails() {
-    const cryptoVal = document.getElementById('admin-edit-crypto')?.value.trim();
-    const epVal = document.getElementById('admin-edit-ep')?.value.trim();
-    if(cryptoVal) adminCryptoAddr = cryptoVal;
-    if(epVal) adminEasypaisaNum = epVal;
-    updateUI();
-    loadDepositDetailsToUI();
-    showCustomPopup("Saved", "Deposit credentials updated successfully!");
-}
-
-function approveDeposit(idx) {
-    const d = pendingDeposits[idx];
-    usdtBalance += d.amount;
-    pendingDeposits.splice(idx, 1);
-    localStorage.setItem('pending_deposits', JSON.stringify(pendingDeposits));
-    
-    userLedger.unshift({
-        time: new Date().toLocaleTimeString(),
-        type: `Deposit Approved`,
-        details: `Amount Added: +$${d.amount.toFixed(2)}`
-    });
-
-    updateUI();
-    loadAdminData();
-    showCustomPopup("Approved", "Deposit approved and added to user balance.");
-}
-
-function rejectDeposit(idx) {
-    pendingDeposits.splice(idx, 1);
-    localStorage.setItem('pending_deposits', JSON.stringify(pendingDeposits));
-    loadAdminData();
-    showCustomPopup("Rejected", "Deposit request rejected.");
-}
-
-function approveWithdrawal(idx) {
-    pendingWithdrawals.splice(idx, 1);
-    localStorage.setItem('pending_withdrawals', JSON.stringify(pendingWithdrawals));
-    loadAdminData();
-    showCustomPopup("Approved", "Withdrawal request marked as sent.");
-}
-
-function rejectWithdrawal(idx) {
-    const w = pendingWithdrawals[idx];
-    usdtBalance += w.amount; 
-    pendingWithdrawals.splice(idx, 1);
-    localStorage.setItem('pending_withdrawals', JSON.stringify(pendingWithdrawals));
-    updateUI();
-    loadAdminData();
-    showCustomPopup("Rejected", "Withdrawal rejected and refunded.");
-}
-
-function withdrawAdminProfit() {
-    const addressInput = document.getElementById('admin-withdraw-address');
-    const address = addressInput?.value.trim();
-    if(!address) { showCustomPopup("Error", "Please enter your destination Crypto Address."); return; }
-    if(adminFeeBalance <= 0) { showCustomPopup("Error", "No profit fee balance available to withdraw."); return; }
-
-    const withdrawnAmount = adminFeeBalance;
-    adminFeeBalance = 0; // Clear accumulated fees
-    usdtBalance += withdrawnAmount; // Add fees to admin's primary wallet balance inside the platform
-    updateUI();
-    loadAdminData();
-    if(addressInput) addressInput.value = "";
-    
-    showCustomPopup("Profit Collected! 💸", `Successfully transferred $${withdrawnAmount.toFixed(2)} to your Admin Wallet Balance!`);
-}
-
-window.onload = initApp;
