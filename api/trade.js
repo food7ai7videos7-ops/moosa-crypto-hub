@@ -28,8 +28,7 @@ module.exports = async (req, res) => {
         
         let parsedSize = parseFloat(size);
         
-        // Bitget minimum requirement check: Ensure size is never below exchange threshold
-        // (Aksar pairs par minimum size 0.001 ya 1 unit hoti hai)
+        // Safeguard: Ensure size meets minimum exchange threshold for both Buy and Sell
         if (isNaN(parsedSize) || parsedSize < 0.001) {
             parsedSize = 0.001;
         }
@@ -38,7 +37,7 @@ module.exports = async (req, res) => {
             symbol: symbol,
             productType: "spot",
             marginMode: "spot",
-            side: side.toLowerCase(),
+            side: side.toLowerCase(), // "buy" or "sell"
             orderType: orderType.toLowerCase(),
             size: parsedSize.toFixed(4)
         });
@@ -58,8 +57,8 @@ module.exports = async (req, res) => {
 
         return res.status(200).json(response.data);
     } catch (error) {
-        // Detailed error capture from Bitget response
-        const errorMsg = error.response?.data?.msg || error.response?.data || error.message;
-        return res.status(500).json({ error: errorMsg });
+        const errData = error.response?.data || error.message;
+        console.error("Exchange Trade Error:", errData);
+        return res.status(500).json({ error: errData });
     }
 };
