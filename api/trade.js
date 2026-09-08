@@ -27,7 +27,10 @@ module.exports = async (req, res) => {
         const requestPath = "/api/v2/spot/trade/place-order";
         
         let parsedSize = parseFloat(size);
-        if (parsedSize < 0.001) parsedSize = 0.001;
+        // Bitget minimum size safeguard: Ensure size is high enough to pass 1 USDT limit
+        if (parsedSize < 1) {
+            parsedSize = 1.0; 
+        }
 
         const bodyData = JSON.stringify({
             symbol: symbol,
