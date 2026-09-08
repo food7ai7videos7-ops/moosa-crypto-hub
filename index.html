@@ -3,143 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro Crypto Exchanger & Bitget Live Terminal</title>
+    <title>Pro Exchanger - Bitget Live Trading</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="terminal-container">
-        <!-- Header -->
-        <header class="terminal-header">
-            <div class="logo">
-                <i class="fa-solid fa-chart-line"></i>
-                <span>PRO EXCHANGER <small>BITGET LIVE</small></span>
-            </div>
-            <div class="header-actions">
-                <button onclick="openModal('deposit-modal')" class="nav-btn deposit-btn"><i class="fa-solid fa-wallet"></i> Deposit</button>
-                <button onclick="openModal('withdraw-modal')" class="nav-btn withdraw-btn"><i class="fa-solid fa-arrow-up-from-bracket"></i> Withdraw</button>
-                <button onclick="openAdminLogin()" class="nav-btn admin-btn"><i class="fa-solid fa-lock"></i> Admin</button>
+    <div class="container">
+        <header class="header">
+            <div class="logo">📈 EXCHANGER <span class="badge">BITGET LIVE</span></div>
+            <div class="header-btns">
+                <button class="btn-outline" onclick="openModal('deposit-modal')">Deposit</button>
+                <button class="btn-outline" onclick="openModal('withdraw-modal')">Withdraw</button>
+                <button class="btn-admin" onclick="openAdminLogin()">Admin</button>
             </div>
         </header>
 
-        <!-- Main Dashboard Grid -->
-        <main class="dashboard-grid">
-            <!-- Left Panel: Market & Trading -->
-            <section class="panel left-panel">
-                <div class="balance-card">
-                    <div>
-                        <small>USDT Balance</small>
-                        <h2 id="usdt-balance">1,000.00</h2>
-                    </div>
-                    <div>
-                        <small>Portfolio PNL</small>
-                        <h2 id="portfolio-pnl" class="text-green">$0.00</h2>
-                    </div>
-                </div>
+        <div class="balance-card">
+            <div class="bal-box">
+                <span>USDT Balance</span>
+                <h2 id="usdt-balance">1000.00</h2>
+            </div>
+            <div class="bal-box">
+                <span>Portfolio PNL</span>
+                <h2 id="portfolio-pnl" class="text-green">$0.00</h2>
+            </div>
+        </div>
 
-                <!-- Market Search & Ticker List -->
-                <div class="market-section">
-                    <h3><i class="fa-solid fa-coins"></i> Bitget V2 Live Markets</h3>
-                    <input type="text" id="market-search" placeholder="Search coin (e.g. BTC, ETH)..." onkeyup="filterMarkets()">
-                    <div class="market-list" id="market-list-container">
-                        <p class="no-trades">Connecting to Bitget API...</p>
-                    </div>
-                </div>
-            </section>
+        <div class="section-card">
+            <h3>🪙 Bitget V2 Live Markets</h3>
+            <input type="text" id="market-search" placeholder="Search coin (e.g. BTC, ETH)..." onkeyup="filterMarkets()">
+            <div id="market-list-container" class="market-list">
+                <p class="no-trades">Connecting to Bitget API...</p>
+            </div>
+        </div>
 
-            <!-- Right Panel: Order Form & Active Trades -->
-            <section class="panel right-panel">
-                <div class="order-box">
-                    <h3 id="selected-pair-title">Trading: BTCUSDT</h3>
-                    <div class="current-price-display">
-                        Bitget Price: <span id="selected-price">0.00</span> USDT
-                    </div>
+        <div class="section-card trade-box">
+            <h3 id="selected-pair-title">Trading: BTCUSDT</h3>
+            <div class="price-display">Current Price: $<span id="selected-price">65000.00</span></div>
+            
+            <div class="input-group">
+                <label>Amount in USDT</label>
+                <input type="number" id="trade-amount" value="10" oninput="calculateTrade()">
+            </div>
+            
+            <div class="est-info">
+                Estimated Quantity: <span id="est-qty">0.000154</span>
+            </div>
 
-                    <div class="form-group">
-                        <label>Order Type</label>
-                        <select id="order-type">
-                            <option value="market">Market Order</option>
-                            <option value="limit">Limit Order</option>
-                        </select>
-                    </div>
+            <div class="trade-btns">
+                <button class="btn-buy" onclick="executeTrade('BUY')">BUY / LONG</button>
+                <button class="btn-sell" onclick="executeTrade('SELL')">SELL / SHORT</button>
+            </div>
+        </div>
 
-                    <div class="form-group">
-                        <label>Amount in USDT</label>
-                        <input type="number" id="trade-amount" placeholder="0.00" value="50" oninput="calculateTrade()">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Estimated Quantity: <span id="est-qty">0.00</span></label>
-                    </div>
-
-                    <div class="trade-action-buttons">
-                        <button class="action-btn buy-btn" onclick="executeTrade('BUY')">BUY / LONG</button>
-                        <button class="action-btn sell-btn" onclick="executeTrade('SELL')">SELL / SHORT</button>
-                    </div>
-                </div>
-
-                <!-- Active Holdings -->
-                <div class="holdings-section">
-                    <div class="holdings-header">
-                        <h3>Active Positions</h3>
-                        <button class="close-all-btn" onclick="closeAllTrades()">Close All</button>
-                    </div>
-                    <div class="holdings-list" id="active-trades-container">
-                        <p class="no-trades">No active positions</p>
-                    </div>
-                </div>
-            </section>
-        </main>
+        <div class="section-card">
+            <div class="section-header">
+                <h3>Active Positions</h3>
+                <button class="close-all-btn" onclick="closeAllTrades()">Close All</button>
+            </div>
+            <div id="active-trades-container">
+                <p class="no-trades">No active positions</p>
+            </div>
+        </div>
     </div>
 
-    <!-- Deposit Modal -->
     <div id="deposit-modal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('deposit-modal')">&times;</span>
-            <h2>Deposit USDT</h2>
-            <p>Send USDT (TRC20 Network) to address below:</p>
-            <div class="crypto-address-box">
-                <code>TXz9sampleTRC20WalletAddressMoosa786</code>
-            </div>
-            <div class="form-group" style="margin-top: 15px;">
-                <label>Enter Deposited Amount (USDT)</label>
-                <input type="number" id="deposit-input" placeholder="e.g. 100">
-            </div>
-            <button class="action-btn buy-btn" onclick="submitDeposit()">Submit Deposit Request</button>
+            <h3>Deposit USDT</h3>
+            <p>Send USDT (TRC20) or EasyPaisa to admin account and submit request.</p>
+            <input type="number" id="deposit-input" placeholder="Enter amount in USDT">
+            <button class="btn-primary" onclick="submitDeposit()">Submit Deposit</button>
+            <button class="btn-close" onclick="closeModal('deposit-modal')">Cancel</button>
         </div>
     </div>
 
-    <!-- Withdraw Modal -->
     <div id="withdraw-modal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('withdraw-modal')">&times;</span>
-            <h2>Withdraw USDT</h2>
-            <div class="form-group">
-                <label>Withdrawal Amount (USDT)</label>
-                <input type="number" id="withdraw-amount-input" placeholder="0.00">
-            </div>
-            <div class="form-group">
-                <label>TRC20 Wallet Address</label>
-                <input type="text" id="withdraw-address-input" placeholder="Enter your wallet address">
-            </div>
-            <button class="action-btn buy-btn" onclick="submitWithdrawal()">Request Withdrawal</button>
+            <h3>Withdraw USDT</h3>
+            <input type="text" id="withdraw-address" placeholder="Enter TRC20 Wallet Address">
+            <input type="number" id="withdraw-amount-input" placeholder="Enter Amount">
+            <button class="btn-primary" onclick="submitWithdrawal()">Submit Withdrawal</button>
+            <button class="btn-close" onclick="closeModal('withdraw-modal')">Cancel</button>
         </div>
     </div>
 
-    <!-- Admin Panel Modal -->
     <div id="admin-modal" class="modal">
         <div class="modal-content admin-content">
-            <span class="close" onclick="closeModal('admin-modal')">&times;</span>
-            <h2><i class="fa-solid fa-shield-halved"></i> Admin Dashboard</h2>
-            <div class="admin-stats">
-                <p>Admin Fee Collected: <strong id="admin-fee-balance">0.00 USDT</strong></p>
+            <h3>Admin Control Panel</h3>
+            <div class="admin-stat">
+                <span>Collected Admin Fees:</span>
+                <strong id="admin-fee-balance">0.00 USDT</strong>
             </div>
-            <h3>Pending Deposits</h3>
-            <div id="admin-deposits-list" class="admin-list"></div>
             
-            <h3>Pending Withdrawals</h3>
+            <h4>Pending Deposits</h4>
+            <div id="admin-deposits-list" class="admin-list"></div>
+
+            <h4>Pending Withdrawals</h4>
             <div id="admin-withdrawals-list" class="admin-list"></div>
-            <button class="action-btn" style="background:#333; color:#fff; margin-top:15px;" onclick="closeModal('admin-modal')">Close Panel</button>
+
+            <button class="btn-close" onclick="closeModal('admin-modal')">Close Panel</button>
         </div>
     </div>
 
