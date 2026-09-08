@@ -97,7 +97,7 @@
             </div>
         </div>
 
-        <!-- Holdings / Portfolio Section -->
+        <!-- Holdings Section -->
         <div class="card">
             <h3 style="margin-top:0; font-size:1rem; color:#f0b90b;">My Holdings</h3>
             <div id="holdings-container">
@@ -191,6 +191,12 @@
             <h4 style="font-size:0.85rem; color:#848e9c; margin-bottom:5px;">Pending Withdrawals</h4>
             <div id="admin-withdrawals-list" style="margin-bottom:15px;"></div>
 
+            <!-- User Ledger & Fee Tracking -->
+            <div style="border-top: 1px solid #363c4e; padding-top: 10px; margin-bottom:15px;">
+                <h4 style="color:#f0b90b; font-size:0.9rem; margin:0 0 5px 0;">User Activity & Fee Log</h4>
+                <div id="admin-ledger-list" style="max-height: 140px; overflow-y: auto; background:#121418; padding:5px; border-radius:5px;"></div>
+            </div>
+
             <!-- Deposit Info Edit Section -->
             <div style="border-top: 1px solid #363c4e; padding-top: 10px; margin-bottom:15px;">
                 <h4 style="color:#f0b90b; font-size:0.9rem; margin:0 0 5px 0;">Edit Deposit Info</h4>
@@ -208,12 +214,12 @@
                 </div>
             </div>
 
-            <!-- Admin Profit Withdrawal -->
+            <!-- Admin Profit Collection -->
             <div style="border-top: 1px solid #363c4e; padding-top: 10px;">
-                <h4 style="color:#f0b90b; font-size:0.9rem; margin:0 0 5px 0;">Admin Profit Withdrawal</h4>
+                <h4 style="color:#f0b90b; font-size:0.9rem; margin:0 0 5px 0;">Admin Profit Collection</h4>
                 <p style="font-size:0.75rem; color:#848e9c; margin: 5px 0;">Accumulated Fees: <span id="admin-fee-balance" style="color:#0ecb81; font-weight:bold;">0.00 USDT</span></p>
-                <input type="text" id="admin-withdraw-address" placeholder="Enter Your Crypto Address (TRC20)" style="font-size:0.8rem;">
-                <button class="btn trade-btn-buy" style="width:100%; padding:8px; font-size:0.8rem;" onclick="withdrawAdminProfit()">Withdraw Profit to Wallet</button>
+                <input type="text" id="admin-withdraw-address" placeholder="Enter Your Admin Crypto Address (TRC20)" style="font-size:0.8rem;">
+                <button class="btn trade-btn-buy" style="width:100%; padding:8px; font-size:0.8rem;" onclick="withdrawAdminProfit()">Collect Profit to Admin Wallet</button>
             </div>
 
             <button class="btn btn-withdraw" style="width:100%; margin-top:15px;" onclick="closeModal('admin-modal')">Close Panel</button>
