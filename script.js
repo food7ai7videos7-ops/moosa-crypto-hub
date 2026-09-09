@@ -1,5 +1,5 @@
 /**
- * Crypto Hub & Admin Panel Logic - Final Updated Script
+ * Crypto Hub & Admin Panel Logic - Complete Final Script
  */
 
 const BIN_ID = "6aa0f3b4ffd3d16853f82308";        
@@ -190,30 +190,39 @@ async function submitDepositRequest() {
     const myId = getOrCreateUserId();
     const timeStr = new Date().toLocaleTimeString();
 
-    try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-        const json = await res.json();
-        let data = ensureDataStructure(json.record || {});
+    let success = false;
+    let attempts = 0;
 
-        data.deposits.push({ amount: amount, userId: myId, time: timeStr });
+    while (!success && attempts < 3) {
+        attempts++;
+        try {
+            const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+            const json = await res.json();
+            let data = ensureDataStructure(json.record || {});
 
-        const updateRes = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-            body: JSON.stringify(data)
-        });
+            data.deposits.push({ amount: amount, userId: myId, time: timeStr });
 
-        if (updateRes.ok || updateRes.status === 200) {
-            alert("Deposit request sent to admin successfully!");
-            closeDepositModal();
-            document.getElementById("depositAmountInput").value = '';
-            fetchCloudData();
-        } else {
-            alert("Cloud sync failed. Please check.");
+            const updateRes = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+                body: JSON.stringify(data)
+            });
+
+            if (updateRes.ok || updateRes.status === 200) {
+                success = true;
+            }
+        } catch (e) {
+            console.error("Attempt " + attempts + " failed", e);
         }
-    } catch (e) {
-        console.error(e);
-        alert("Network error. Check your internet connection.");
+    }
+
+    if (success) {
+        alert("Deposit request sent to admin successfully!");
+        closeDepositModal();
+        document.getElementById("depositAmountInput").value = '';
+        fetchCloudData();
+    } else {
+        alert("Cloud sync failed. Please check your internet connection.");
     }
 }
 
@@ -406,7 +415,7 @@ async function executeTrade(side) {
 function openDepositModal() { document.getElementById("depositModal").style.display = 'flex'; }
 function closeDepositModal() { document.getElementById("depositModal").style.display = 'none'; }
 function openWithdrawModal() { document.getElementById("withdrawModal").style.display = 'flex'; }
-function closeWithdrawModal() { document.getElementById("withdrawModal*/wa*/w*/withdrawModal").style.display = 'none'; }
+function closeWithdrawModal() { document.getElementById("withdrawModal").style.display = 'none'; }
 function openAdminSecurityModal() { document.getElementById("adminSecurityModal").style.display = 'flex'; }
 function closeAdminSecurityModal() { document.getElementById("adminSecurityModal").style.display = 'none'; }
 
