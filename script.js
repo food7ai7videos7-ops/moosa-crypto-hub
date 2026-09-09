@@ -1,8 +1,8 @@
 /**
- * Crypto Hub & Admin Panel Logic - Final Secured & Balance-Validated Code
+ * Crypto Hub & Admin Panel Logic - Final Public Bin & Secured Code
  */
 
-const BIN_ID = "6aa0e87fac6210685ab66184";        
+const BIN_ID = "6aa0f3b4ffd3d16853f82308";        
 const API_KEY = "$2a$10$pfdj3F.5SwxTIbB2AuilwOoQcYEVyhzkiED4s1dWQpaZlbawjcyg";    
 
 const allMarketPairs = [
@@ -194,43 +194,50 @@ async function submitDepositRequest() {
     const amount = parseFloat(document.getElementById("depositAmountInput").value);
     if (!amount || amount <= 0) { alert("Enter a valid deposit amount."); return; }
 
+    const myId = getOrCreateUserId();
+    const timeStr = new Date().toLocaleTimeString();
+
     try {
-        // Step 1: Fetch absolute latest data from Cloud
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
         const json = await res.json();
         let data = ensureDataStructure(json.record || {});
 
-        // Step 2: Push new deposit with User ID
         data.deposits.push({
             amount: amount,
-            userId: getOrCreateUserId(),
-            time: new Date().toLocaleTimeString()
+            userId: myId,
+            time: timeStr
         });
 
-        // Step 3: Send updated data back to Cloud
         const updateRes = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': API_KEY,
+                'X-Bin-Versioning': 'false'
+            },
             body: JSON.stringify(data)
         });
 
-        if (updateRes.ok) {
+        if (updateRes.ok || updateRes.status === 200) {
             alert("Deposit request sent to admin successfully!");
             closeDepositModal();
             document.getElementById("depositAmountInput").value = '';
             fetchCloudData();
         } else {
-            alert("Failed to sync with cloud. Try again.");
+            alert("Cloud sync failed. Please check.");
         }
     } catch (e) {
-        alert("Error sending request. Check internet connection.");
         console.error(e);
+        alert("Network error. Check your internet connection.");
     }
 }
 
 async function submitWithdrawRequest() {
     const amount = parseFloat(document.getElementById("withdrawAddressInput").value);
     if (!amount || amount <= 0) { alert("Enter withdrawal amount."); return; }
+
+    const myId = getOrCreateUserId();
+    const timeStr = new Date().toLocaleTimeString();
 
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
@@ -239,23 +246,31 @@ async function submitWithdrawRequest() {
 
         data.withdrawals.push({
             amount: amount,
-            userId: getOrCreateUserId(),
-            time: new Date().toLocaleTimeString()
+            userId: myId,
+            time: timeStr
         });
 
-        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+        const updateRes = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': API_KEY,
+                'X-Bin-Versioning': 'false'
+            },
             body: JSON.stringify(data)
         });
 
-        alert("Withdrawal request sent to admin successfully!");
-        closeWithdrawModal();
-        document.getElementById("withdrawAddressInput").value = '';
-        fetchCloudData();
+        if (updateRes.ok || updateRes.status === 200) {
+            alert("Withdrawal request sent to admin successfully!");
+            closeWithdrawModal();
+            document.getElementById("withdrawAddressInput").value = '';
+            fetchCloudData();
+        } else {
+            alert("Cloud sync failed.");
+        }
     } catch (e) {
-        alert("Error sending request. Try again.");
         console.error(e);
+        alert("Network error.");
     }
 }
 
@@ -395,20 +410,17 @@ async function executeTrade(side) {
     const myId = getOrCreateUserId();
 
     try {
-        // Fetch latest balance from cloud to ensure accuracy
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
         const json = await res.json();
         let data = ensureDataStructure(json.record || {});
 
         const currentBalance = data.balances[myId] || 0;
 
-        // Check if user has enough balance to trade
         if (currentBalance < tradeAmount) {
             alert(`Insufficient Balance ($${currentBalance.toFixed(2)}). Please deposit funds first to trade!`);
             return;
         }
 
-        // If balance is sufficient, execute trade
         alert(`Trade (${side.toUpperCase()}) executed successfully for $${tradeAmount} (UID: ${myId})`);
         document.getElementById("tradeAmountInput").value = '';
 
