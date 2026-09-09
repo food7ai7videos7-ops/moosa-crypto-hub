@@ -1,5 +1,5 @@
 /**
- * Crypto Hub & Admin Panel Logic - Final Error-Free Cloud Sync
+ * Crypto Hub & Admin Panel Logic - Final Secured & Balance-Validated Code
  */
 
 const BIN_ID = "6aa0e87fac6210685ab66184";        
@@ -27,20 +27,23 @@ function getOrCreateUserId() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    getOrCreateUserId();
+    const myId = getOrCreateUserId();
+    const uidDisplay = document.getElementById("userUniqueIdDisplay");
+    if (uidDisplay) uidDisplay.innerText = myId;
+
     renderMarketsList(allMarketPairs);
     setupMarketSearch();
     fetchCloudData();
 
-    // Auto refresh data every 2 seconds for real-time sync
+    // Auto-sync every 2 seconds
     setInterval(fetchCloudData, 2000);
 });
 
-// Helper to ensure data structure is safe
 function ensureDataStructure(data) {
     if (!data.config) data.config = { trc20: '', details: '', fee: '0.1' };
     if (!data.deposits) data.deposits = [];
     if (!data.withdrawals) data.withdrawals = [];
+    if (!data.balances) data.balances = {};
     return data;
 }
 
@@ -62,8 +65,27 @@ async function fetchCloudData() {
 
 function updateUIWithState(data) {
     data = ensureDataStructure(data);
+    const myId = getOrCreateUserId();
 
-    // 1. Update Deposit Info on User Screen
+    // 1. Update User Balance
+    const userBal = data.balances[myId] || 0;
+    const balEl = document.getElementById("userBalance");
+    if (balEl) balEl.innerText = `$${parseFloat(userBal).toFixed(2)}`;
+
+    const holdingsEl = document.getElementById("userHoldings");
+    if (holdingsEl) {
+        if (userBal > 0) {
+            holdingsEl.innerHTML = `
+                <div class="flex justify-between items-center text-xs py-1 border-b border-gray-800">
+                    <span class="text-white font-bold">USDT / USD</span>
+                    <span class="text-yellow-400">$${parseFloat(userBal).toFixed(2)}</span>
+                </div>`;
+        } else {
+            holdingsEl.innerHTML = `No holdings available`;
+        }
+    }
+
+    // 2. Update Deposit Info on User Screen
     const instructionsEl = document.getElementById("depositInstructions");
     if (instructionsEl) {
         instructionsEl.innerHTML = `
@@ -74,7 +96,11 @@ function updateUIWithState(data) {
         `;
     }
 
-    // 2. Reflect in Admin Inputs
+    // 3. Admin Panel UI Check
+    const adminPanelEl = document.getElementById("adminPanel");
+    const isAdminOpen = adminPanelEl && adminPanelEl.style.display === 'block';
+    if (!isAdminOpen) return;
+
     const addrInput = document.getElementById("depositAddressInput");
     const detailsInput = document.getElementById("depositDetailsInput");
     const feeInput = document.getElementById("feeInput");
@@ -83,7 +109,6 @@ function updateUIWithState(data) {
     if (detailsInput && document.activeElement !== detailsInput && !detailsInput.value) detailsInput.value = data.config.details || '';
     if (feeInput && document.activeElement !== feeInput) feeInput.value = data.config.fee || '0.1';
 
-    // 3. Render Pending Lists in Admin Panel
     const depContainer = document.getElementById("pendingDeposits");
     const withContainer = document.getElementById("pendingWithdrawals");
 
@@ -93,7 +118,7 @@ function updateUIWithState(data) {
                 <div class="flex justify-between items-center py-2 border-b border-gray-800 text-[11px]">
                     <div>
                         <span class="text-white font-bold">${d.amount} USDT</span>
-                        <span class="text-yellow-400 block text-[10px] font-mono">User ID: ${d.userId}</span>
+                        <span class="text-yellow-400 block text-[10px] font-mono">UID: ${d.userId}</span>
                         <span class="text-gray-500 block text-[9px]">${d.time}</span>
                     </div>
                     <div class="flex space-x-1">
@@ -110,7 +135,7 @@ function updateUIWithState(data) {
                 <div class="flex justify-between items-center py-2 border-b border-gray-800 text-[11px]">
                     <div>
                         <span class="text-white font-bold">${w.amount} USDT</span>
-                        <span class="text-yellow-400 block text-[10px] font-mono">User ID: ${w.userId}</span>
+                        <span class="text-yellow-400 block text-[10px] font-mono">UID: ${w.userId}</span>
                         <span class="text-gray-500 block text-[9px]">${w.time}</span>
                     </div>
                     <div class="flex space-x-1">
@@ -142,10 +167,7 @@ async function saveDepositInfo() {
         });
         alert("Deposit Info saved and synced globally!");
         fetchCloudData();
-    } catch(e) { 
-        console.error(e);
-        alert("Error saving deposit info.");
-    }
+    } catch(e) { console.error(e); alert("Error saving info."); }
 }
 
 async function saveFee() {
@@ -164,47 +186,51 @@ async function saveFee() {
         });
         alert("Trading fee saved permanently!");
         fetchCloudData();
-    } catch(e) { 
-        console.error(e);
-        alert("Error saving fee.");
-    }
+    } catch(e) { console.error(e); alert("Error saving fee."); }
 }
 
-// User Actions
+// User Actions (Fixed Deposit Submission)
 async function submitDepositRequest() {
-    const amount = document.getElementById("depositAmountInput").value;
+    const amount = parseFloat(document.getElementById("depositAmountInput").value);
     if (!amount || amount <= 0) { alert("Enter a valid deposit amount."); return; }
 
     try {
+        // Step 1: Fetch absolute latest data from Cloud
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
         const json = await res.json();
         let data = ensureDataStructure(json.record || {});
 
+        // Step 2: Push new deposit with User ID
         data.deposits.push({
             amount: amount,
             userId: getOrCreateUserId(),
             time: new Date().toLocaleTimeString()
         });
 
-        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+        // Step 3: Send updated data back to Cloud
+        const updateRes = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
             body: JSON.stringify(data)
         });
 
-        alert("Deposit request sent to admin successfully!");
-        closeDepositModal();
-        document.getElementById("depositAmountInput").value = '';
-        fetchCloudData();
+        if (updateRes.ok) {
+            alert("Deposit request sent to admin successfully!");
+            closeDepositModal();
+            document.getElementById("depositAmountInput").value = '';
+            fetchCloudData();
+        } else {
+            alert("Failed to sync with cloud. Try again.");
+        }
     } catch (e) {
-        alert("Error sending request. Try again.");
+        alert("Error sending request. Check internet connection.");
         console.error(e);
     }
 }
 
 async function submitWithdrawRequest() {
-    const amount = document.getElementById("withdrawAddressInput").value;
-    if (!amount) { alert("Enter withdrawal amount."); return; }
+    const amount = parseFloat(document.getElementById("withdrawAddressInput").value);
+    if (!amount || amount <= 0) { alert("Enter withdrawal amount."); return; }
 
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
@@ -233,20 +259,31 @@ async function submitWithdrawRequest() {
     }
 }
 
+// Admin Approvals
 async function approveDeposit(index) {
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
         const json = await res.json();
         let data = ensureDataStructure(json.record || {});
 
-        data.deposits.splice(index, 1);
-        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-            body: JSON.stringify(data)
-        });
-        fetchCloudData();
-        alert("Deposit approved!");
+        const dep = data.deposits[index];
+        if (dep) {
+            const uid = dep.userId;
+            const amt = parseFloat(dep.amount);
+
+            if (!data.balances) data.balances = {};
+            data.balances[uid] = (data.balances[uid] || 0) + amt;
+
+            data.deposits.splice(index, 1);
+
+            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+                body: JSON.stringify(data)
+            });
+            fetchCloudData();
+            alert(`Deposit approved! $${amt} added to User ID: ${uid}`);
+        }
     } catch(e) { console.error(e); }
 }
 
@@ -263,7 +300,7 @@ async function rejectDeposit(index) {
             body: JSON.stringify(data)
         });
         fetchCloudData();
-        alert("Deposit rejected.");
+        alert("Deposit rejected successfully.");
     } catch(e) { console.error(e); }
 }
 
@@ -273,14 +310,24 @@ async function approveWithdrawal(index) {
         const json = await res.json();
         let data = ensureDataStructure(json.record || {});
 
-        data.withdrawals.splice(index, 1);
-        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-            body: JSON.stringify(data)
-        });
-        fetchCloudData();
-        alert("Withdrawal approved!");
+        const w = data.withdrawals[index];
+        if (w) {
+            const uid = w.userId;
+            const amt = parseFloat(w.amount);
+
+            if (data.balances[uid] && data.balances[uid] >= amt) {
+                data.balances[uid] -= amt;
+            }
+
+            data.withdrawals.splice(index, 1);
+            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+                body: JSON.stringify(data)
+            });
+            fetchCloudData();
+            alert("Withdrawal approved!");
+        }
     } catch(e) { console.error(e); }
 }
 
@@ -335,10 +382,40 @@ function selectTradingPair(symbol, price) {
     document.getElementById("activeTradingPrice").innerText = `$${price.toFixed(4)}`;
 }
 
-function executeTrade(side) {
-    const amount = document.getElementById("tradeAmountInput").value;
-    if (!amount || amount <= 0) { alert("Enter amount."); return; }
-    alert(`Trade (${side.toUpperCase()}) executed for User ID: ${getOrCreateUserId()}`);
+// STRICT TRADE EXECUTION CHECK (Balance validation added)
+async function executeTrade(side) {
+    const amountInput = document.getElementById("tradeAmountInput").value;
+    const tradeAmount = parseFloat(amountInput);
+
+    if (!tradeAmount || tradeAmount <= 0) {
+        alert("Please enter a valid trade amount.");
+        return;
+    }
+
+    const myId = getOrCreateUserId();
+
+    try {
+        // Fetch latest balance from cloud to ensure accuracy
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+        const json = await res.json();
+        let data = ensureDataStructure(json.record || {});
+
+        const currentBalance = data.balances[myId] || 0;
+
+        // Check if user has enough balance to trade
+        if (currentBalance < tradeAmount) {
+            alert(`Insufficient Balance ($${currentBalance.toFixed(2)}). Please deposit funds first to trade!`);
+            return;
+        }
+
+        // If balance is sufficient, execute trade
+        alert(`Trade (${side.toUpperCase()}) executed successfully for $${tradeAmount} (UID: ${myId})`);
+        document.getElementById("tradeAmountInput").value = '';
+
+    } catch (e) {
+        console.error(e);
+        alert("Error executing trade. Try again.");
+    }
 }
 
 // Modals
@@ -355,6 +432,7 @@ function verifyAdminPassword() {
         closeAdminSecurityModal();
         document.getElementById("adminPanel").style.display = 'block';
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        fetchCloudData();
     } else {
         alert("Incorrect Password!");
     }
