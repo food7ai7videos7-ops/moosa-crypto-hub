@@ -1,9 +1,6 @@
 /**
- * Crypto Hub & Admin Panel Logic - Complete Final Script
+ * Crypto Hub & Admin Panel Logic - LocalStorage Version (Zero Errors)
  */
-
-const BIN_ID = "6aa0f3b4ffd3d16853f82308";        
-const API_KEY = "$2a$10$pfdj3F.5SwxTIbB2AuilwOoQcYEVyhzkiED4s1dWQpaZlbawjcyg";    
 
 const allMarketPairs = [
     { symbol: 'BTCUSDT', price: 78648.01, change: -0.34 },
@@ -26,6 +23,26 @@ function getOrCreateUserId() {
     return userId;
 }
 
+// LocalStorage se data load ya initialize karna
+function getLocalData() {
+    let data = localStorage.getItem("crypto_hub_local_db");
+    if (!data) {
+        const initialData = {
+            config: { trc20: '', details: '', fee: '0.1' },
+            deposits: [],
+            withdrawals: [],
+            balances: {}
+        };
+        localStorage.setItem("crypto_hub_local_db", JSON.stringify(initialData));
+        return initialData;
+    }
+    return JSON.parse(data);
+}
+
+function saveLocalData(data) {
+    localStorage.setItem("crypto_hub_local_db", JSON.stringify(data));
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const myId = getOrCreateUserId();
     const uidDisplay = document.getElementById("userUniqueIdDisplay");
@@ -38,31 +55,12 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(fetchCloudData, 2000);
 });
 
-function ensureDataStructure(data) {
-    if (!data.config) data.config = { trc20: '', details: '', fee: '0.1' };
-    if (!data.deposits) data.deposits = [];
-    if (!data.withdrawals) data.withdrawals = [];
-    if (!data.balances) data.balances = {};
-    return data;
-}
-
-async function fetchCloudData() {
-    try {
-        const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-            headers: { 'X-Master-Key': API_KEY }
-        });
-        const result = await response.json();
-        if (result && result.record) {
-            const safeData = ensureDataStructure(result.record);
-            updateUIWithState(safeData);
-        }
-    } catch (e) {
-        console.error("Sync error", e);
-    }
+function fetchCloudData() {
+    const data = getLocalData();
+    updateUIWithState(data);
 }
 
 function updateUIWithState(data) {
-    data = ensureDataStructure(data);
     const myId = getOrCreateUserId();
 
     const userBal = data.balances[myId] || 0;
@@ -142,209 +140,112 @@ function updateUIWithState(data) {
     }
 }
 
-async function saveDepositInfo() {
+function saveDepositInfo() {
     const trc20 = document.getElementById("depositAddressInput").value.trim();
     const details = document.getElementById("depositDetailsInput").value.trim();
 
-    try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-        const json = await res.json();
-        let data = ensureDataStructure(json.record || {});
+    let data = getLocalData();
+    data.config.trc20 = trc20;
+    data.config.details = details;
+    saveLocalData(data);
 
-        data.config.trc20 = trc20;
-        data.config.details = details;
-
-        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-            body: JSON.stringify(data)
-        });
-        alert("Deposit Info saved successfully!");
-        fetchCloudData();
-    } catch(e) { console.error(e); alert("Error saving info."); }
+    alert("Deposit Info saved successfully!");
+    fetchCloudData();
 }
 
-async function saveFee() {
+function saveFee() {
     const feeVal = document.getElementById("feeInput").value;
-    try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-        const json = await res.json();
-        let data = ensureDataStructure(json.record || {});
+    let data = getLocalData();
+    data.config.fee = feeVal;
+    saveLocalData(data);
 
-        data.config.fee = feeVal;
-
-        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-            body: JSON.stringify(data)
-        });
-        alert("Trading fee saved successfully!");
-        fetchCloudData();
-    } catch(e) { console.error(e); alert("Error saving fee."); }
+    alert("Trading fee saved successfully!");
+    fetchCloudData();
 }
 
-async function submitDepositRequest() {
+function submitDepositRequest() {
     const amount = parseFloat(document.getElementById("depositAmountInput").value);
     if (!amount || amount <= 0) { alert("Enter a valid deposit amount."); return; }
 
     const myId = getOrCreateUserId();
     const timeStr = new Date().toLocaleTimeString();
 
-    let success = false;
-    let attempts = 0;
+    let data = getLocalData();
+    data.deposits.push({ amount: amount, userId: myId, time: timeStr });
+    saveLocalData(data);
 
-    while (!success && attempts < 3) {
-        attempts++;
-        try {
-            const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-            const json = await res.json();
-            let data = ensureDataStructure(json.record || {});
-
-            data.deposits.push({ amount: amount, userId: myId, time: timeStr });
-
-            const updateRes = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-                body: JSON.stringify(data)
-            });
-
-            if (updateRes.ok || updateRes.status === 200) {
-                success = true;
-            }
-        } catch (e) {
-            console.error("Attempt " + attempts + " failed", e);
-        }
-    }
-
-    if (success) {
-        alert("Deposit request sent to admin successfully!");
-        closeDepositModal();
-        document.getElementById("depositAmountInput").value = '';
-        fetchCloudData();
-    } else {
-        alert("Cloud sync failed. Please check your internet connection.");
-    }
+    alert("Deposit request sent to admin successfully!");
+    closeDepositModal();
+    document.getElementById("depositAmountInput").value = '';
+    fetchCloudData();
 }
 
-async function submitWithdrawRequest() {
+function submitWithdrawRequest() {
     const amount = parseFloat(document.getElementById("withdrawAddressInput").value);
     if (!amount || amount <= 0) { alert("Enter withdrawal amount."); return; }
 
     const myId = getOrCreateUserId();
     const timeStr = new Date().toLocaleTimeString();
 
-    try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-        const json = await res.json();
-        let data = ensureDataStructure(json.record || {});
+    let data = getLocalData();
+    data.withdrawals.push({ amount: amount, userId: myId, time: timeStr });
+    saveLocalData(data);
 
-        data.withdrawals.push({ amount: amount, userId: myId, time: timeStr });
+    alert("Withdrawal request sent to admin successfully!");
+    closeWithdrawModal();
+    document.getElementById("withdrawAddressInput").value = '';
+    fetchCloudData();
+}
 
-        const updateRes = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-            body: JSON.stringify(data)
-        });
+function approveDeposit(index) {
+    let data = getLocalData();
+    const dep = data.deposits[index];
+    if (dep) {
+        const uid = dep.userId;
+        const amt = parseFloat(dep.amount);
 
-        if (updateRes.ok || updateRes.status === 200) {
-            alert("Withdrawal request sent to admin successfully!");
-            closeWithdrawModal();
-            document.getElementById("withdrawAddressInput").value = '';
-            fetchCloudData();
-        } else {
-            alert("Cloud sync failed.");
-        }
-    } catch (e) {
-        console.error(e);
-        alert("Network error.");
+        if (!data.balances) data.balances = {};
+        data.balances[uid] = (data.balances[uid] || 0) + amt;
+        data.deposits.splice(index, 1);
+
+        saveLocalData(data);
+        fetchCloudData();
+        alert(`Deposit approved! $${amt} added to User ID: ${uid}`);
     }
 }
 
-async function approveDeposit(index) {
-    try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-        const json = await res.json();
-        let data = ensureDataStructure(json.record || {});
+function rejectDeposit(index) {
+    let data = getLocalData();
+    data.deposits.splice(index, 1);
+    saveLocalData(data);
+    fetchCloudData();
+    alert("Deposit rejected successfully.");
+}
 
-        const dep = data.deposits[index];
-        if (dep) {
-            const uid = dep.userId;
-            const amt = parseFloat(dep.amount);
+function approveWithdrawal(index) {
+    let data = getLocalData();
+    const w = data.withdrawals[index];
+    if (w) {
+        const uid = w.userId;
+        const amt = parseFloat(w.amount);
 
-            if (!data.balances) data.balances = {};
-            data.balances[uid] = (data.balances[uid] || 0) + amt;
-            data.deposits.splice(index, 1);
-
-            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-                body: JSON.stringify(data)
-            });
-            fetchCloudData();
-            alert(`Deposit approved! $${amt} added to User ID: ${uid}`);
+        if (data.balances[uid] && data.balances[uid] >= amt) {
+            data.balances[uid] -= amt;
         }
-    } catch(e) { console.error(e); }
-}
-
-async function rejectDeposit(index) {
-    try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-        const json = await res.json();
-        let data = ensureDataStructure(json.record || {});
-
-        data.deposits.splice(index, 1);
-        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-            body: JSON.stringify(data)
-        });
-        fetchCloudData();
-        alert("Deposit rejected successfully.");
-    } catch(e) { console.error(e); }
-}
-
-async function approveWithdrawal(index) {
-    try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-        const json = await res.json();
-        let data = ensureDataStructure(json.record || {});
-
-        const w = data.withdrawals[index];
-        if (w) {
-            const uid = w.userId;
-            const amt = parseFloat(w.amount);
-
-            if (data.balances[uid] && data.balances[uid] >= amt) {
-                data.balances[uid] -= amt;
-            }
-
-            data.withdrawals.splice(index, 1);
-            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-                body: JSON.stringify(data)
-            });
-            fetchCloudData();
-            alert("Withdrawal approved!");
-        }
-    } catch(e) { console.error(e); }
-}
-
-async function rejectWithdrawal(index) {
-    try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-        const json = await res.json();
-        let data = ensureDataStructure(json.record || {});
 
         data.withdrawals.splice(index, 1);
-        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-            body: JSON.stringify(data)
-        });
+        saveLocalData(data);
         fetchCloudData();
-        alert("Withdrawal rejected.");
-    } catch(e) { console.error(e); }
+        alert("Withdrawal approved!");
+    }
+}
+
+function rejectWithdrawal(index) {
+    let data = getLocalData();
+    data.withdrawals.splice(index, 1);
+    saveLocalData(data);
+    fetchCloudData();
+    alert("Withdrawal rejected.");
 }
 
 function renderMarketsList(pairs) {
@@ -380,7 +281,7 @@ function selectTradingPair(symbol, price) {
     document.getElementById("activeTradingPrice").innerText = `$${price.toFixed(4)}`;
 }
 
-async function executeTrade(side) {
+function executeTrade(side) {
     const amountInput = document.getElementById("tradeAmountInput").value;
     const tradeAmount = parseFloat(amountInput);
 
@@ -390,26 +291,16 @@ async function executeTrade(side) {
     }
 
     const myId = getOrCreateUserId();
+    let data = getLocalData();
+    const currentBalance = data.balances[myId] || 0;
 
-    try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-        const json = await res.json();
-        let data = ensureDataStructure(json.record || {});
-
-        const currentBalance = data.balances[myId] || 0;
-
-        if (currentBalance < tradeAmount) {
-            alert(`Insufficient Balance ($${currentBalance.toFixed(2)}). Please deposit funds first to trade!`);
-            return;
-        }
-
-        alert(`Trade (${side.toUpperCase()}) executed successfully for $${tradeAmount} (UID: ${myId})`);
-        document.getElementById("tradeAmountInput").value = '';
-
-    } catch (e) {
-        console.error(e);
-        alert("Error executing trade. Try again.");
+    if (currentBalance < tradeAmount) {
+        alert(`Insufficient Balance ($${currentBalance.toFixed(2)}). Please deposit funds first to trade!`);
+        return;
     }
+
+    alert(`Trade (${side.toUpperCase()}) executed successfully for $${tradeAmount} (UID: ${myId})`);
+    document.getElementById("tradeAmountInput").value = '';
 }
 
 function openDepositModal() { document.getElementById("depositModal").style.display = 'flex'; }
