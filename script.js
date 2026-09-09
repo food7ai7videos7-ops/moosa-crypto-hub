@@ -314,8 +314,10 @@ function verifyAdminPanelPassword() {
     const pwd = document.getElementById("adminPasswordInput").value;
     if (pwd === "Mmooossaa35") {
         closeAdminSecurityModal();
-        document.getElementById("adminPanel").style.display = 'block';
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        const panel = document.getElementById("adminPanel");
+        panel.style.display = 'block';
+        document.getElementById("adminPasswordInput").value = '';
+        panel.scrollIntoView({ behavior: 'smooth' });
         fetchCloudData();
     } else {
         alert("Incorrect Password!");
