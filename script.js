@@ -1,5 +1,5 @@
 /**
- * Crypto Hub & Admin Panel Logic - Final Clean & Fast Cloud Sync
+ * Crypto Hub & Admin Panel Logic - Final Error-Free Cloud Sync
  */
 
 const BIN_ID = "6aa0e87fac6210685ab66184";        
@@ -32,9 +32,17 @@ document.addEventListener("DOMContentLoaded", () => {
     setupMarketSearch();
     fetchCloudData();
 
-    // Auto refresh data every 2 seconds for instant real-time sync
+    // Auto refresh data every 2 seconds for real-time sync
     setInterval(fetchCloudData, 2000);
 });
+
+// Helper to ensure data structure is safe
+function ensureDataStructure(data) {
+    if (!data.config) data.config = { trc20: '', details: '', fee: '0.1' };
+    if (!data.deposits) data.deposits = [];
+    if (!data.withdrawals) data.withdrawals = [];
+    return data;
+}
 
 // Fetch data from Cloud
 async function fetchCloudData() {
@@ -44,7 +52,8 @@ async function fetchCloudData() {
         });
         const result = await response.json();
         if (result && result.record) {
-            updateUIWithState(result.record);
+            const safeData = ensureDataStructure(result.record);
+            updateUIWithState(safeData);
         }
     } catch (e) {
         console.error("Sync error", e);
@@ -52,14 +61,16 @@ async function fetchCloudData() {
 }
 
 function updateUIWithState(data) {
+    data = ensureDataStructure(data);
+
     // 1. Update Deposit Info on User Screen
     const instructionsEl = document.getElementById("depositInstructions");
     if (instructionsEl) {
         instructionsEl.innerHTML = `
             <strong class="text-yellow-400 block mb-1">USDT (TRC20) Address:</strong>
-            <span class="text-white break-all select-all">${data.config?.trc20 || 'Not set'}</span>
+            <span class="text-white break-all select-all">${data.config.trc20 || 'Not set'}</span>
             <strong class="text-yellow-400 block mt-2 mb-1">EasyPaisa / JazzCash:</strong>
-            <span class="text-white">${data.config?.details || 'Not set'}</span>
+            <span class="text-white">${data.config.details || 'Not set'}</span>
         `;
     }
 
@@ -68,20 +79,17 @@ function updateUIWithState(data) {
     const detailsInput = document.getElementById("depositDetailsInput");
     const feeInput = document.getElementById("feeInput");
 
-    if (addrInput && document.activeElement !== addrInput && !addrInput.value) addrInput.value = data.config?.trc20 || '';
-    if (detailsInput && document.activeElement !== detailsInput && !detailsInput.value) detailsInput.value = data.config?.details || '';
-    if (feeInput && document.activeElement !== feeInput) feeInput.value = data.config?.fee || '0.1';
+    if (addrInput && document.activeElement !== addrInput && !addrInput.value) addrInput.value = data.config.trc20 || '';
+    if (detailsInput && document.activeElement !== detailsInput && !detailsInput.value) detailsInput.value = data.config.details || '';
+    if (feeInput && document.activeElement !== feeInput) feeInput.value = data.config.fee || '0.1';
 
     // 3. Render Pending Lists in Admin Panel
     const depContainer = document.getElementById("pendingDeposits");
     const withContainer = document.getElementById("pendingWithdrawals");
 
-    const deposits = data.deposits || [];
-    const withdrawals = data.withdrawals || [];
-
     if (depContainer) {
-        depContainer.innerHTML = deposits.length > 0 
-            ? deposits.map((d, index) => `
+        depContainer.innerHTML = data.deposits.length > 0 
+            ? data.deposits.map((d, index) => `
                 <div class="flex justify-between items-center py-2 border-b border-gray-800 text-[11px]">
                     <div>
                         <span class="text-white font-bold">${d.amount} USDT</span>
@@ -97,8 +105,8 @@ function updateUIWithState(data) {
     }
 
     if (withContainer) {
-        withContainer.innerHTML = withdrawals.length > 0 
-            ? withdrawals.map((w, index) => `
+        withContainer.innerHTML = data.withdrawals.length > 0 
+            ? data.withdrawals.map((w, index) => `
                 <div class="flex justify-between items-center py-2 border-b border-gray-800 text-[11px]">
                     <div>
                         <span class="text-white font-bold">${w.amount} USDT</span>
@@ -122,7 +130,7 @@ async function saveDepositInfo() {
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
         const json = await res.json();
-        let data = json.record;
+        let data = ensureDataStructure(json.record || {});
 
         data.config.trc20 = trc20;
         data.config.details = details;
@@ -134,7 +142,10 @@ async function saveDepositInfo() {
         });
         alert("Deposit Info saved and synced globally!");
         fetchCloudData();
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+        console.error(e);
+        alert("Error saving deposit info.");
+    }
 }
 
 async function saveFee() {
@@ -142,7 +153,7 @@ async function saveFee() {
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
         const json = await res.json();
-        let data = json.record;
+        let data = ensureDataStructure(json.record || {});
 
         data.config.fee = feeVal;
 
@@ -153,10 +164,13 @@ async function saveFee() {
         });
         alert("Trading fee saved permanently!");
         fetchCloudData();
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+        console.error(e);
+        alert("Error saving fee.");
+    }
 }
 
-// User Actions (Fixed & Fast)
+// User Actions
 async function submitDepositRequest() {
     const amount = document.getElementById("depositAmountInput").value;
     if (!amount || amount <= 0) { alert("Enter a valid deposit amount."); return; }
@@ -164,9 +178,7 @@ async function submitDepositRequest() {
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
         const json = await res.json();
-        let data = json.record;
-
-        if (!data.deposits) data.deposits = [];
+        let data = ensureDataStructure(json.record || {});
 
         data.deposits.push({
             amount: amount,
@@ -197,9 +209,7 @@ async function submitWithdrawRequest() {
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
         const json = await res.json();
-        let data = json.record;
-
-        if (!data.withdrawals) data.withdrawals = [];
+        let data = ensureDataStructure(json.record || {});
 
         data.withdrawals.push({
             amount: amount,
@@ -227,7 +237,7 @@ async function approveDeposit(index) {
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
         const json = await res.json();
-        let data = json.record;
+        let data = ensureDataStructure(json.record || {});
 
         data.deposits.splice(index, 1);
         await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
@@ -244,7 +254,7 @@ async function rejectDeposit(index) {
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
         const json = await res.json();
-        let data = json.record;
+        let data = ensureDataStructure(json.record || {});
 
         data.deposits.splice(index, 1);
         await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
@@ -261,7 +271,7 @@ async function approveWithdrawal(index) {
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
         const json = await res.json();
-        let data = json.record;
+        let data = ensureDataStructure(json.record || {});
 
         data.withdrawals.splice(index, 1);
         await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
@@ -278,7 +288,7 @@ async function rejectWithdrawal(index) {
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
         const json = await res.json();
-        let data = json.record;
+        let data = ensureDataStructure(json.record || {});
 
         data.withdrawals.splice(index, 1);
         await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
