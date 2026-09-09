@@ -1,5 +1,5 @@
 /**
- * Crypto Hub & Admin Panel Logic - Final JSONBin Cloud Sync
+ * Crypto Hub & Admin Panel Logic - Final Clean & Fast Cloud Sync
  */
 
 const BIN_ID = "6aa0e87fac6210685ab66184";        
@@ -32,8 +32,8 @@ document.addEventListener("DOMContentLoaded", () => {
     setupMarketSearch();
     fetchCloudData();
 
-    // Auto refresh data every 3 seconds to sync between User and Admin
-    setInterval(fetchCloudData, 3000);
+    // Auto refresh data every 2 seconds for instant real-time sync
+    setInterval(fetchCloudData, 2000);
 });
 
 // Fetch data from Cloud
@@ -48,22 +48,6 @@ async function fetchCloudData() {
         }
     } catch (e) {
         console.error("Sync error", e);
-    }
-}
-
-// Save data to Cloud
-async function saveCloudData(data) {
-    try {
-        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': API_KEY
-            },
-            body: JSON.stringify(data)
-        });
-    } catch (e) {
-        console.error("Save error", e);
     }
 }
 
@@ -88,7 +72,7 @@ function updateUIWithState(data) {
     if (detailsInput && document.activeElement !== detailsInput && !detailsInput.value) detailsInput.value = data.config?.details || '';
     if (feeInput && document.activeElement !== feeInput) feeInput.value = data.config?.fee || '0.1';
 
-    // 3. Render Pending Lists strictly in Admin Panel
+    // 3. Render Pending Lists in Admin Panel
     const depContainer = document.getElementById("pendingDeposits");
     const withContainer = document.getElementById("pendingWithdrawals");
 
@@ -135,114 +119,176 @@ async function saveDepositInfo() {
     const trc20 = document.getElementById("depositAddressInput").value.trim();
     const details = document.getElementById("depositDetailsInput").value.trim();
 
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-    const resData = await response.json();
-    let data = resData.record;
+    try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+        const json = await res.json();
+        let data = json.record;
 
-    data.config.trc20 = trc20;
-    data.config.details = details;
-    await saveCloudData(data);
-    alert("Deposit Info saved and synced globally!");
-    fetchCloudData();
+        data.config.trc20 = trc20;
+        data.config.details = details;
+
+        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            body: JSON.stringify(data)
+        });
+        alert("Deposit Info saved and synced globally!");
+        fetchCloudData();
+    } catch(e) { console.error(e); }
 }
 
 async function saveFee() {
     const feeVal = document.getElementById("feeInput").value;
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-    const resData = await response.json();
-    let data = resData.record;
+    try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+        const json = await res.json();
+        let data = json.record;
 
-    data.config.fee = feeVal;
-    await saveCloudData(data);
-    alert("Trading fee saved permanently!");
-    fetchCloudData();
+        data.config.fee = feeVal;
+
+        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            body: JSON.stringify(data)
+        });
+        alert("Trading fee saved permanently!");
+        fetchCloudData();
+    } catch(e) { console.error(e); }
 }
 
-// User Actions
+// User Actions (Fixed & Fast)
 async function submitDepositRequest() {
     const amount = document.getElementById("depositAmountInput").value;
     if (!amount || amount <= 0) { alert("Enter a valid deposit amount."); return; }
 
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-    const resData = await response.json();
-    let data = resData.record;
-    if (!data.deposits) data.deposits = [];
+    try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+        const json = await res.json();
+        let data = json.record;
 
-    data.deposits.push({
-        amount: amount,
-        userId: getOrCreateUserId(),
-        time: new Date().toLocaleTimeString()
-    });
+        if (!data.deposits) data.deposits = [];
 
-    await saveCloudData(data);
-    alert("Deposit request sent to admin successfully!");
-    closeDepositModal();
-    fetchCloudData();
+        data.deposits.push({
+            amount: amount,
+            userId: getOrCreateUserId(),
+            time: new Date().toLocaleTimeString()
+        });
+
+        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            body: JSON.stringify(data)
+        });
+
+        alert("Deposit request sent to admin successfully!");
+        closeDepositModal();
+        document.getElementById("depositAmountInput").value = '';
+        fetchCloudData();
+    } catch (e) {
+        alert("Error sending request. Try again.");
+        console.error(e);
+    }
 }
 
 async function submitWithdrawRequest() {
     const amount = document.getElementById("withdrawAddressInput").value;
     if (!amount) { alert("Enter withdrawal amount."); return; }
 
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-    const resData = await response.json();
-    let data = resData.record;
-    if (!data.withdrawals) data.withdrawals = [];
+    try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+        const json = await res.json();
+        let data = json.record;
 
-    data.withdrawals.push({
-        amount: amount,
-        userId: getOrCreateUserId(),
-        time: new Date().toLocaleTimeString()
-    });
+        if (!data.withdrawals) data.withdrawals = [];
 
-    await saveCloudData(data);
-    alert("Withdrawal request sent to admin successfully!");
-    closeWithdrawModal();
-    fetchCloudData();
+        data.withdrawals.push({
+            amount: amount,
+            userId: getOrCreateUserId(),
+            time: new Date().toLocaleTimeString()
+        });
+
+        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            body: JSON.stringify(data)
+        });
+
+        alert("Withdrawal request sent to admin successfully!");
+        closeWithdrawModal();
+        document.getElementById("withdrawAddressInput").value = '';
+        fetchCloudData();
+    } catch (e) {
+        alert("Error sending request. Try again.");
+        console.error(e);
+    }
 }
 
 async function approveDeposit(index) {
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-    const resData = await response.json();
-    let data = resData.record;
+    try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+        const json = await res.json();
+        let data = json.record;
 
-    data.deposits.splice(index, 1);
-    await saveCloudData(data);
-    fetchCloudData();
-    alert("Deposit approved!");
+        data.deposits.splice(index, 1);
+        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            body: JSON.stringify(data)
+        });
+        fetchCloudData();
+        alert("Deposit approved!");
+    } catch(e) { console.error(e); }
 }
 
 async function rejectDeposit(index) {
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-    const resData = await response.json();
-    let data = resData.record;
+    try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+        const json = await res.json();
+        let data = json.record;
 
-    data.deposits.splice(index, 1);
-    await saveCloudData(data);
-    fetchCloudData();
-    alert("Deposit rejected.");
+        data.deposits.splice(index, 1);
+        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            body: JSON.stringify(data)
+        });
+        fetchCloudData();
+        alert("Deposit rejected.");
+    } catch(e) { console.error(e); }
 }
 
 async function approveWithdrawal(index) {
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-    const resData = await response.json();
-    let data = resData.record;
+    try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+        const json = await res.json();
+        let data = json.record;
 
-    data.withdrawals.splice(index, 1);
-    await saveCloudData(data);
-    fetchCloudData();
-    alert("Withdrawal approved!");
+        data.withdrawals.splice(index, 1);
+        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            body: JSON.stringify(data)
+        });
+        fetchCloudData();
+        alert("Withdrawal approved!");
+    } catch(e) { console.error(e); }
 }
 
 async function rejectWithdrawal(index) {
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
-    const resData = await response.json();
-    let data = resData.record;
+    try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+        const json = await res.json();
+        let data = json.record;
 
-    data.withdrawals.splice(index, 1);
-    await saveCloudData(data);
-    fetchCloudData();
-    alert("Withdrawal rejected.");
+        data.withdrawals.splice(index, 1);
+        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            body: JSON.stringify(data)
+        });
+        fetchCloudData();
+        alert("Withdrawal rejected.");
+    } catch(e) { console.error(e); }
 }
 
 // Markets & Trading
