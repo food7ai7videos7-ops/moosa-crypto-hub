@@ -1,6 +1,9 @@
 /**
- * Crypto Hub & Admin Panel Logic - Clean & Working Version
+ * Crypto Hub & Admin Panel Logic - Final JSONBin Cloud Sync
  */
+
+const BIN_ID = "6aa0e87fac6210685ab66184";        
+const API_KEY = "$2a$10$pfdj3F.5SwxTIbB2AuilwOoQcYEVyhzkiED4s1dWQpaZlbawjcyg";    
 
 const allMarketPairs = [
     { symbol: 'BTCUSDT', price: 78648.01, change: -0.34 },
@@ -14,9 +17,6 @@ const allMarketPairs = [
     { symbol: 'TRXUSDT', price: 0.24, change: +0.15 }
 ];
 
-const STORAGE_KEY = "crypto_hub_master_storage_v5";
-
-// Generate Unique 8-Digit User ID
 function getOrCreateUserId() {
     let userId = localStorage.getItem("crypto_hub_unique_uid");
     if (!userId) {
@@ -30,69 +30,74 @@ document.addEventListener("DOMContentLoaded", () => {
     getOrCreateUserId();
     renderMarketsList(allMarketPairs);
     setupMarketSearch();
-    loadPlatformData();
+    fetchCloudData();
 
-    // Listen for data updates across tabs/devices instantly
-    window.addEventListener("storage", () => {
-        loadPlatformData();
-    });
-    
-    // Periodic refresh check
-    setInterval(loadPlatformData, 2000);
+    // Auto refresh data every 3 seconds to sync between User and Admin
+    setInterval(fetchCloudData, 3000);
 });
 
-function getPlatformData() {
-    const defaultData = {
-        config: { 
-            trc20: "THzhJZx7ZGn3MKb8zBnzk5aNAH63wvZGzA", 
-            details: "Easypaisa Number: 03155461841 (Misbah)", 
-            fee: "0.1" 
-        },
-        deposits: [],
-        withdrawals: []
-    };
+// Fetch data from Cloud
+async function fetchCloudData() {
     try {
-        const data = localStorage.getItem(STORAGE_KEY);
-        return data ? JSON.parse(data) : defaultData;
+        const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': API_KEY }
+        });
+        const result = await response.json();
+        if (result && result.record) {
+            updateUIWithState(result.record);
+        }
     } catch (e) {
-        return defaultData;
+        console.error("Sync error", e);
     }
 }
 
-function savePlatformData(data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+// Save data to Cloud
+async function saveCloudData(data) {
+    try {
+        await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': API_KEY
+            },
+            body: JSON.stringify(data)
+        });
+    } catch (e) {
+        console.error("Save error", e);
+    }
 }
 
-function loadPlatformData() {
-    const data = getPlatformData();
-
+function updateUIWithState(data) {
     // 1. Update Deposit Info on User Screen
     const instructionsEl = document.getElementById("depositInstructions");
     if (instructionsEl) {
         instructionsEl.innerHTML = `
             <strong class="text-yellow-400 block mb-1">USDT (TRC20) Address:</strong>
-            <span class="text-white break-all select-all">${data.config.trc20 || 'Not set'}</span>
+            <span class="text-white break-all select-all">${data.config?.trc20 || 'Not set'}</span>
             <strong class="text-yellow-400 block mt-2 mb-1">EasyPaisa / JazzCash:</strong>
-            <span class="text-white">${data.config.details || 'Not set'}</span>
+            <span class="text-white">${data.config?.details || 'Not set'}</span>
         `;
     }
 
-    // 2. Reflect in Admin Inputs (Only if not actively typing)
+    // 2. Reflect in Admin Inputs
     const addrInput = document.getElementById("depositAddressInput");
     const detailsInput = document.getElementById("depositDetailsInput");
     const feeInput = document.getElementById("feeInput");
 
-    if (addrInput && document.activeElement !== addrInput && !addrInput.value) addrInput.value = data.config.trc20 || '';
-    if (detailsInput && document.activeElement !== detailsInput && !detailsInput.value) detailsInput.value = data.config.details || '';
-    if (feeInput && document.activeElement !== feeInput) feeInput.value = data.config.fee || '0.1';
+    if (addrInput && document.activeElement !== addrInput && !addrInput.value) addrInput.value = data.config?.trc20 || '';
+    if (detailsInput && document.activeElement !== detailsInput && !detailsInput.value) detailsInput.value = data.config?.details || '';
+    if (feeInput && document.activeElement !== feeInput) feeInput.value = data.config?.fee || '0.1';
 
-    // 3. Render Pending Deposits & Withdrawals strictly in Admin Panel
+    // 3. Render Pending Lists strictly in Admin Panel
     const depContainer = document.getElementById("pendingDeposits");
     const withContainer = document.getElementById("pendingWithdrawals");
 
+    const deposits = data.deposits || [];
+    const withdrawals = data.withdrawals || [];
+
     if (depContainer) {
-        depContainer.innerHTML = data.deposits && data.deposits.length > 0 
-            ? data.deposits.map((d, index) => `
+        depContainer.innerHTML = deposits.length > 0 
+            ? deposits.map((d, index) => `
                 <div class="flex justify-between items-center py-2 border-b border-gray-800 text-[11px]">
                     <div>
                         <span class="text-white font-bold">${d.amount} USDT</span>
@@ -108,8 +113,8 @@ function loadPlatformData() {
     }
 
     if (withContainer) {
-        withContainer.innerHTML = data.withdrawals && data.withdrawals.length > 0 
-            ? data.withdrawals.map((w, index) => `
+        withContainer.innerHTML = withdrawals.length > 0 
+            ? withdrawals.map((w, index) => `
                 <div class="flex justify-between items-center py-2 border-b border-gray-800 text-[11px]">
                     <div>
                         <span class="text-white font-bold">${w.amount} USDT</span>
@@ -125,92 +130,118 @@ function loadPlatformData() {
     }
 }
 
-// Admin Action Functions
-function saveDepositInfo() {
+// Admin Actions
+async function saveDepositInfo() {
     const trc20 = document.getElementById("depositAddressInput").value.trim();
     const details = document.getElementById("depositDetailsInput").value.trim();
 
-    const data = getPlatformData();
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+    const resData = await response.json();
+    let data = resData.record;
+
     data.config.trc20 = trc20;
     data.config.details = details;
-    savePlatformData(data);
-    alert("Deposit Info saved successfully!");
-    loadPlatformData();
+    await saveCloudData(data);
+    alert("Deposit Info saved and synced globally!");
+    fetchCloudData();
 }
 
-function saveFee() {
+async function saveFee() {
     const feeVal = document.getElementById("feeInput").value;
-    const data = getPlatformData();
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+    const resData = await response.json();
+    let data = resData.record;
+
     data.config.fee = feeVal;
-    savePlatformData(data);
+    await saveCloudData(data);
     alert("Trading fee saved permanently!");
-    loadPlatformData();
+    fetchCloudData();
 }
 
-// User Action Functions
-function submitDepositRequest() {
+// User Actions
+async function submitDepositRequest() {
     const amount = document.getElementById("depositAmountInput").value;
     if (!amount || amount <= 0) { alert("Enter a valid deposit amount."); return; }
 
-    const data = getPlatformData();
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+    const resData = await response.json();
+    let data = resData.record;
+    if (!data.deposits) data.deposits = [];
+
     data.deposits.push({
         amount: amount,
         userId: getOrCreateUserId(),
         time: new Date().toLocaleTimeString()
     });
-    savePlatformData(data);
 
-    alert("Deposit request submitted successfully!");
+    await saveCloudData(data);
+    alert("Deposit request sent to admin successfully!");
     closeDepositModal();
-    loadPlatformData();
+    fetchCloudData();
 }
 
-function submitWithdrawRequest() {
+async function submitWithdrawRequest() {
     const amount = document.getElementById("withdrawAddressInput").value;
     if (!amount) { alert("Enter withdrawal amount."); return; }
 
-    const data = getPlatformData();
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+    const resData = await response.json();
+    let data = resData.record;
+    if (!data.withdrawals) data.withdrawals = [];
+
     data.withdrawals.push({
         amount: amount,
         userId: getOrCreateUserId(),
         time: new Date().toLocaleTimeString()
     });
-    savePlatformData(data);
 
+    await saveCloudData(data);
     alert("Withdrawal request sent to admin successfully!");
     closeWithdrawModal();
-    loadPlatformData();
+    fetchCloudData();
 }
 
-function approveDeposit(index) {
-    const data = getPlatformData();
+async function approveDeposit(index) {
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+    const resData = await response.json();
+    let data = resData.record;
+
     data.deposits.splice(index, 1);
-    savePlatformData(data);
-    loadPlatformData();
+    await saveCloudData(data);
+    fetchCloudData();
     alert("Deposit approved!");
 }
 
-function rejectDeposit(index) {
-    const data = getPlatformData();
+async function rejectDeposit(index) {
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+    const resData = await response.json();
+    let data = resData.record;
+
     data.deposits.splice(index, 1);
-    savePlatformData(data);
-    loadPlatformData();
+    await saveCloudData(data);
+    fetchCloudData();
     alert("Deposit rejected.");
 }
 
-function approveWithdrawal(index) {
-    const data = getPlatformData();
+async function approveWithdrawal(index) {
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+    const resData = await response.json();
+    let data = resData.record;
+
     data.withdrawals.splice(index, 1);
-    savePlatformData(data);
-    loadPlatformData();
+    await saveCloudData(data);
+    fetchCloudData();
     alert("Withdrawal approved!");
 }
 
-function rejectWithdrawal(index) {
-    const data = getPlatformData();
+async function rejectWithdrawal(index) {
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+    const resData = await response.json();
+    let data = resData.record;
+
     data.withdrawals.splice(index, 1);
-    savePlatformData(data);
-    loadPlatformData();
+    await saveCloudData(data);
+    fetchCloudData();
     alert("Withdrawal rejected.");
 }
 
@@ -268,7 +299,6 @@ function verifyAdminPassword() {
         closeAdminSecurityModal();
         document.getElementById("adminPanel").style.display = 'block';
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        loadPlatformData();
     } else {
         alert("Incorrect Password!");
     }
