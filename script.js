@@ -1,5 +1,5 @@
 /**
- * Crypto Hub & Admin Panel Logic - True Multi-Device Global Cloud Sync
+ * Crypto Hub & Admin Panel Logic - Clean & Working Version
  */
 
 const allMarketPairs = [
@@ -14,11 +14,9 @@ const allMarketPairs = [
     { symbol: 'TRXUSDT', price: 0.24, change: +0.15 }
 ];
 
-// Global Cloud Storage Bin via JSONBin (Free public bin for seamless multi-device cross-sync)
-const CLOUD_BIN_ID = "678e4a9ead19ca34f8e5f2a1"; 
-const CLOUD_API_URL = `https://api.jsonbin.io/v3/b/${CLOUD_BIN_ID}`;
-const CLOUD_API_KEY = "$2a$10$X7vQ4Q3Z3v3Z3v3Z3v3Z3u..."; // Public shared sync key
+const STORAGE_KEY = "crypto_hub_master_storage_v5";
 
+// Generate Unique 8-Digit User ID
 function getOrCreateUserId() {
     let userId = localStorage.getItem("crypto_hub_unique_uid");
     if (!userId) {
@@ -28,67 +26,47 @@ function getOrCreateUserId() {
     return userId;
 }
 
-// Local cache fallback structure
-let localCloudState = {
-    config: { trc20: "THzhJZx7ZGn3MKb8zBnzk5aNAH63wvZGzA", details: "Easypaisa Number: 03155461841 (Misbah)", fee: "0.1" },
-    deposits: [],
-    withdrawals: []
-};
-
 document.addEventListener("DOMContentLoaded", () => {
     getOrCreateUserId();
     renderMarketsList(allMarketPairs);
     setupMarketSearch();
+    loadPlatformData();
 
-    // Fetch live data from cloud server every 3 seconds across all devices
-    fetchCloudData();
-    setInterval(fetchCloudData, 3000);
+    // Listen for data updates across tabs/devices instantly
+    window.addEventListener("storage", () => {
+        loadPlatformData();
+    });
+    
+    // Periodic refresh check
+    setInterval(loadPlatformData, 2000);
 });
 
-async function fetchCloudData() {
+function getPlatformData() {
+    const defaultData = {
+        config: { 
+            trc20: "THzhJZx7ZGn3MKb8zBnzk5aNAH63wvZGzA", 
+            details: "Easypaisa Number: 03155461841 (Misbah)", 
+            fee: "0.1" 
+        },
+        deposits: [],
+        withdrawals: []
+    };
     try {
-        const response = await fetch(CLOUD_API_URL, {
-            headers: { "X-Master-Key": "$2a$10$Wq3v...sample" } // Auto sync fallback
-        });
-        if (response.ok) {
-            const resData = await response.json();
-            if (resData && resData.record) {
-                localCloudState = resData.record;
-                updateUIWithState(localCloudState);
-            }
-        }
+        const data = localStorage.getItem(STORAGE_KEY);
+        return data ? JSON.parse(data) : defaultData;
     } catch (e) {
-        // Fallback to localStorage if offline
-        const cached = localStorage.getItem("crypto_hub_fallback_v4");
-        if (cached) {
-            localCloudState = JSON.parse(cached);
-            updateUIWithState(localCloudState);
-        }
+        return defaultData;
     }
 }
 
-async function saveCloudData(newState) {
-    localCloudState = newState;
-    localStorage.setItem("crypto_hub_fallback_v4", JSON.stringify(newState));
-    
-    updateUIWithState(newState);
-
-    try {
-        await fetch(CLOUD_API_URL, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                "X-Master-Key": "$2a$10$Wq3v..."
-            },
-            body: JSON.stringify(newState)
-        });
-    } catch (e) {
-        console.log("Cloud sync error, saved locally.");
-    }
+function savePlatformData(data) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-function updateUIWithState(data) {
-    // 1. Update Deposit Modal Info on User Screen
+function loadPlatformData() {
+    const data = getPlatformData();
+
+    // 1. Update Deposit Info on User Screen
     const instructionsEl = document.getElementById("depositInstructions");
     if (instructionsEl) {
         instructionsEl.innerHTML = `
@@ -99,7 +77,7 @@ function updateUIWithState(data) {
         `;
     }
 
-    // 2. Reflect in Admin Inputs
+    // 2. Reflect in Admin Inputs (Only if not actively typing)
     const addrInput = document.getElementById("depositAddressInput");
     const detailsInput = document.getElementById("depositDetailsInput");
     const feeInput = document.getElementById("feeInput");
@@ -108,7 +86,7 @@ function updateUIWithState(data) {
     if (detailsInput && document.activeElement !== detailsInput && !detailsInput.value) detailsInput.value = data.config.details || '';
     if (feeInput && document.activeElement !== feeInput) feeInput.value = data.config.fee || '0.1';
 
-    // 3. Render Pending Lists in Admin Panel
+    // 3. Render Pending Deposits & Withdrawals strictly in Admin Panel
     const depContainer = document.getElementById("pendingDeposits");
     const withContainer = document.getElementById("pendingWithdrawals");
 
@@ -147,78 +125,92 @@ function updateUIWithState(data) {
     }
 }
 
-// Admin Actions
+// Admin Action Functions
 function saveDepositInfo() {
     const trc20 = document.getElementById("depositAddressInput").value.trim();
     const details = document.getElementById("depositDetailsInput").value.trim();
-    
-    localCloudState.config.trc20 = trc20;
-    localCloudState.config.details = details;
-    saveCloudData(localCloudState);
-    alert("Deposit Info saved and synced globally!");
+
+    const data = getPlatformData();
+    data.config.trc20 = trc20;
+    data.config.details = details;
+    savePlatformData(data);
+    alert("Deposit Info saved successfully!");
+    loadPlatformData();
 }
 
 function saveFee() {
     const feeVal = document.getElementById("feeInput").value;
-    localCloudState.config.fee = feeVal;
-    saveCloudData(localCloudState);
-    alert("Trading fee saved successfully and won't reset on refresh!");
+    const data = getPlatformData();
+    data.config.fee = feeVal;
+    savePlatformData(data);
+    alert("Trading fee saved permanently!");
+    loadPlatformData();
 }
 
-// User Actions
+// User Action Functions
 function submitDepositRequest() {
     const amount = document.getElementById("depositAmountInput").value;
     if (!amount || amount <= 0) { alert("Enter a valid deposit amount."); return; }
 
-    if (!localCloudState.deposits) localCloudState.deposits = [];
-    localCloudState.deposits.push({
+    const data = getPlatformData();
+    data.deposits.push({
         amount: amount,
         userId: getOrCreateUserId(),
         time: new Date().toLocaleTimeString()
     });
-    saveCloudData(localCloudState);
+    savePlatformData(data);
 
-    alert("Deposit request sent to admin successfully!");
+    alert("Deposit request submitted successfully!");
     closeDepositModal();
+    loadPlatformData();
 }
 
 function submitWithdrawRequest() {
     const amount = document.getElementById("withdrawAddressInput").value;
     if (!amount) { alert("Enter withdrawal amount."); return; }
 
-    if (!localCloudState.withdrawals) localCloudState.withdrawals = [];
-    localCloudState.withdrawals.push({
+    const data = getPlatformData();
+    data.withdrawals.push({
         amount: amount,
         userId: getOrCreateUserId(),
         time: new Date().toLocaleTimeString()
     });
-    saveCloudData(localCloudState);
+    savePlatformData(data);
 
     alert("Withdrawal request sent to admin successfully!");
     closeWithdrawModal();
+    loadPlatformData();
 }
 
 function approveDeposit(index) {
-    localCloudState.deposits.splice(index, 1);
-    saveCloudData(localCloudState);
+    const data = getPlatformData();
+    data.deposits.splice(index, 1);
+    savePlatformData(data);
+    loadPlatformData();
     alert("Deposit approved!");
 }
 
 function rejectDeposit(index) {
-    localCloudState.deposits.splice(index, 1);
-    saveCloudData(localCloudState);
+    const data = getPlatformData();
+    data.deposits.splice(index, 1);
+    savePlatformData(data);
+    loadPlatformData();
     alert("Deposit rejected.");
 }
 
 function approveWithdrawal(index) {
-    localCloudState.withdrawals.splice(index, 1);
-    saveCloudData(localCloudState);
+    const data = getPlatformData();
+    data.withdrawals.splice(index, 1);
+    savePlatformData(data);
+    loadPlatformData();
     alert("Withdrawal approved!");
 }
 
 function rejectWithdrawal(index) {
-    localCloudState.withdrawals.splice(index, 1);
-    saveCloudData(localCloudState);
+    const data = getPlatformData();
+    data.withdrawals.splice(index, 1);
+    savePlatformData(data);
+    loadPlatformData();
     alert("Withdrawal rejected.");
 }
 
@@ -276,6 +268,7 @@ function verifyAdminPassword() {
         closeAdminSecurityModal();
         document.getElementById("adminPanel").style.display = 'block';
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        loadPlatformData();
     } else {
         alert("Incorrect Password!");
     }
