@@ -3,123 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Trading Dashboard & Admin Panel</title>
+    <title>Crypto Hub</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-950 text-gray-100 font-sans antialiased min-h-screen flex flex-col">
 
-    <div class="container mx-auto px-4 py-6 max-w-5xl flex-grow">
+    <!-- Main App Container -->
+    <div class="container mx-auto px-4 py-4 max-w-md flex-grow">
         
-        <header class="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
-            <h1 class="text-2xl font-bold text-yellow-400">Crypto Trading Platform</h1>
-            <div id="userWalletInfo" class="text-sm bg-gray-900 px-4 py-2 rounded-lg border border-gray-800">
-                Balance: <span id="userBalance" class="text-green-400 font-semibold">Loading...</span>
+        <!-- Top Navbar / Header -->
+        <header class="flex justify-between items-center mb-4 bg-gray-900 p-3 rounded-xl border border-gray-800">
+            <div class="flex items-center space-x-2">
+                <span class="text-yellow-400 font-bold text-lg">Crypto Hub</span>
+            </div>
+            <div class="flex items-center space-x-3">
+                <div class="text-xs bg-gray-950 px-3 py-1.5 rounded-lg border border-gray-800">
+                    Bal: <span id="userBalance" class="text-green-400 font-semibold">$0.00</span>
+                </div>
+                <button onclick="openAdminSecurityModal()" class="bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold text-xs px-3 py-1.5 rounded-lg transition">Admin</button>
             </div>
         </header>
 
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="md:col-span-2 bg-gray-900 p-5 rounded-xl border border-gray-800 shadow-xl">
-                <h2 class="text-lg font-semibold text-yellow-400 mb-4">Active Market Chart & Trading</h2>
-                <div id="chartContainer" class="h-64 bg-gray-950 rounded flex items-center justify-center border border-gray-800 mb-4 text-gray-500">
-                    Live Chart / Ticker View Area
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <button onclick="triggerQuickTrade('buy')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition duration-200">Long / Buy</button>
-                    <button onclick="triggerQuickTrade('sell')" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition duration-200">Short / Sell</button>
-                </div>
-            </div>
+        <!-- Action Buttons (Deposit / Withdraw) -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <button onclick="openDepositModal()" class="bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold py-2.5 rounded-xl text-sm transition">Deposit</button>
+            <button onclick="openWithdrawModal()" class="bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold py-2.5 rounded-xl text-sm transition border border-gray-700">Withdraw</button>
+        </div>
 
-            <div class="bg-gray-900 p-5 rounded-xl border border-gray-800 shadow-xl flex flex-col justify-between">
-                <div>
-                    <h3 class="text-lg font-semibold text-yellow-400 mb-3">Market Status</h3>
-                    <p class="text-sm text-gray-400 mb-2">Connected Exchange: <span class="text-white font-medium">Bitget API</span></p>
-                    <p class="text-sm text-gray-400 mb-2">Execution Mode: <span class="text-green-400 font-medium">Live / Sync</span></p>
-                </div>
-                <div class="mt-4 p-3 bg-gray-950 rounded border border-gray-800 text-xs text-gray-400">
-                    Note: Multi-device requests sync automatically.
-                </div>
+        <!-- My Holdings Section -->
+        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 mb-4">
+            <h2 class="text-sm font-semibold text-yellow-400 mb-2">My Holdings</h2>
+            <div id="myHoldingsContainer" class="text-xs text-gray-400 text-center py-2">
+                No holdings available
             </div>
-        </section>
+        </div>
 
-        <div id="adminPanel" class="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-2xl mb-8">
-            <h2 class="text-xl font-bold mb-6 text-yellow-400 border-b border-gray-800 pb-2">Admin Control Panel</h2>
+        <!-- Markets List Section -->
+        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 mb-4">
+            <h2 class="text-sm font-semibold text-yellow-400 mb-3">Markets</h2>
+            <input type="text" id="marketSearch" placeholder="Search pair (e.g. BTC)..." class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white mb-3 focus:outline-none focus:border-yellow-500">
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                    <h3 class="text-md font-semibold text-gray-300 mb-2">Pending Deposits</h3>
-                    <div id="pendingDeposits" class="bg-gray-950 p-3 rounded border border-gray-800 text-sm text-gray-400 min-h-[60px]">
-                        No pending deposits found.
-                    </div>
-                </div>
-                <div>
-                    <h3 class="text-md font-semibold text-gray-300 mb-2">Pending Withdrawals</h3>
-                    <div id="pendingWithdrawals" class="bg-gray-950 p-3 rounded border border-gray-800 text-sm text-gray-400 min-h-[60px]">
-                        No pending withdrawals found.
-                    </div>
-                </div>
-            </div>
-
-            <div class="mb-6 bg-gray-950 p-4 rounded-xl border border-yellow-600/30">
-                <h3 class="text-md font-semibold text-yellow-400 mb-2">User Detailed Financial & Trade Ledger</h3>
-                <p class="text-xs text-gray-400 mb-3">Tracks starting balance, current balance, and trade history for every user across devices.</p>
-                <div class="max-h-72 overflow-y-auto">
-                    <div id="userDetailedLedgerContainer">
-                        <p class="text-gray-500 text-sm text-center py-4">Loading user financial details...</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mb-6 bg-gray-950 p-4 rounded-lg border border-gray-800">
-                <h3 class="text-md font-semibold text-yellow-400 mb-3">Edit Deposit Info</h3>
-                <div class="space-y-3">
-                    <input type="text" id="depositAddressInput" placeholder="TRC20 Address" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 text-sm text-white focus:outline-none focus:border-yellow-500">
-                    <input type="text" id="depositDetailsInput" placeholder="Phone / Name Info (e.g. 03155461841 - Misbah)" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 text-sm text-white focus:outline-none focus:border-yellow-500">
-                    <button onclick="saveDepositInfo()" class="bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold px-5 py-2 rounded text-sm transition duration-200">Save Deposit Info</button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div class="bg-gray-950 p-4 rounded-lg border border-gray-800">
-                    <h3 class="text-md font-semibold text-yellow-400 mb-3">Fee Management</h3>
-                    <div class="flex space-x-2">
-                        <input type="number" id="feeInput" value="0.1" step="0.01" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white focus:outline-none focus:border-yellow-500">
-                        <button onclick="saveFee()" class="bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold px-4 py-2 rounded text-sm">Save</button>
-                    </div>
-                </div>
-
-                <div class="bg-gray-950 p-4 rounded-lg border border-gray-800 flex flex-col justify-between">
+            <div id="marketsListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <div onclick="selectTradingPair('BTCUSDT', 78648.01)" class="flex justify-between items-center p-2 bg-gray-950 rounded-lg border border-gray-800 cursor-pointer hover:border-yellow-500">
                     <div>
-                        <h3 class="text-md font-semibold text-yellow-400 mb-1">Admin Profit Withdrawal</h3>
-                        <p class="text-xs text-gray-400 mb-3">Accumulated Fees: <span id="accumulatedFees" class="text-green-400 font-bold">0.00 USDT</span></p>
+                        <span class="font-bold text-xs text-white">BTCUSDT</span>
                     </div>
+                    <div class="text-right">
+                        <span class="text-xs text-white">78648.0100</span>
+                        <span class="text-[10px] text-red-400 block">-0.34%</span>
+                    </div>
+                </div>
+                <div onclick="selectTradingPair('ETHUSDT', 2488.91)" class="flex justify-between items-center p-2 bg-gray-950 rounded-lg border border-gray-800 cursor-pointer hover:border-yellow-500">
                     <div>
-                        <input type="text" id="adminWithdrawAddress" placeholder="Enter Your Crypto Address (TRC20)" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white mb-2 focus:outline-none focus:border-yellow-500">
-                        <button onclick="withdrawAdminProfit()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded text-sm transition duration-200">Withdraw Profit to Wallet</button>
+                        <span class="font-bold text-xs text-white">ETHUSDT</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-white">2488.9100</span>
+                        <span class="text-[10px] text-green-400 block">+0.10%</span>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div>
-                <h3 class="text-md font-semibold text-yellow-400 mb-2">General Activity & Trade Logs</h3>
-                <div class="max-h-60 overflow-y-auto bg-gray-950 p-3 rounded-lg border border-gray-800">
-                    <div id="userActivityContainer">
-                        <p class="text-gray-500 text-sm text-center py-4">Loading activity logs...</p>
-                    </div>
-                </div>
+        <!-- Trading Section -->
+        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 mb-4">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-semibold text-yellow-400">Trading: <span id="activeTradingSymbol" class="text-white">BTCUSDT</span></h2>
             </div>
+            <p class="text-xs text-gray-400 mb-3">Current Price: <span id="activeTradingPrice" class="text-white font-medium">$78648.0100</span></p>
             
-            <div class="mt-6 text-center">
-                <button onclick="closeAdminPanel()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-6 py-2 rounded-lg text-sm transition duration-200">Close Panel</button>
+            <div class="mb-3">
+                <input type="number" id="tradeAmountInput" placeholder="Amount in USDT" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-yellow-500">
+                <p class="text-[10px] text-gray-500 mt-1">Estimated Qty: <span id="estimatedQty">0.000000</span></p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                    <label class="text-[10px] text-gray-400 block mb-1">Take Profit (TP)</label>
+                    <input type="number" id="tpInput" placeholder="Target Price" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-yellow-500">
+                    <span class="text-[10px] text-green-400 block mt-0.5">Est: $0.00</span>
+                </div>
+                <div>
+                    <label class="text-[10px] text-gray-400 block mb-1">Stop Loss (SL)</label>
+                    <input type="number" id="slInput" placeholder="Stop Price" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-yellow-500">
+                    <span class="text-[10px] text-red-400 block mt-0.5">Est: $0.00</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="executeTrade('buy')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 rounded-xl text-xs transition">BUY / LONG</button>
+                <button onclick="executeTrade('sell')" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl text-xs transition">SELL / SHORT</button>
+            </div>
+        </div>
+
+        <!-- Active Positions -->
+        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 mb-4">
+            <h2 class="text-sm font-semibold text-yellow-400 mb-2">Active Positions</h2>
+            <div id="activePositionsContainer" class="text-xs text-gray-400 text-center py-2">
+                No active positions
             </div>
         </div>
 
     </div>
 
-    <footer class="bg-gray-900 border-t border-gray-800 py-4 text-center text-xs text-gray-500">
-        &copy; 2026 Crypto Trading Platform. All rights reserved.
-    </footer>
+    <!-- Deposit Modal -->
+    <div id="depositModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center px-4 z-50">
+        <div class="bg-gray-900 p-5 rounded-2xl border border-gray-800 max-w-sm w-full">
+            <h3 class="text-sm font-bold text-yellow-400 mb-2">Deposit Funds</h3>
+            <p id="depositInstructions" class="text-[11px] text-gray-300 mb-3 bg-gray-950 p-2.5 rounded-lg border border-gray-800">
+                Loading deposit details...
+            </p>
+            <input type="number" id="depositAmountInput" placeholder="Enter Amount in USDT" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white mb-3 focus:outline-none focus:border-yellow-500">
+            <div class="flex space-x-2">
+                <button onclick="submitDepositRequest()" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold py-2 rounded-xl text-xs transition">Submit Request</button>
+                <button onclick="closeDepositModal()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-2 rounded-xl text-xs transition">Cancel</button>
+            </div>
+        </div>
+    </div>
 
+    <!-- Withdraw Modal -->
+    <div id="withdrawModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center px-4 z-50">
+        <div class="bg-gray-900 p-5 rounded-2xl border border-gray-800 max-w-sm w-full">
+            <h3 class="text-sm font-bold text-yellow-400 mb-2">Withdraw Funds</h3>
+            <input type="text" id="withdrawAddressInput" placeholder="Enter Withdrawal Amount" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white mb-3 focus:outline-none focus:border-yellow-500">
+            <div class="flex space-x-2">
+                <button onclick="submitWithdrawRequest()" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold py-2 rounded-xl text-xs transition">Submit Withdrawal</button>
+                <button onclick="closeWithdrawModal()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-2 rounded-xl text-xs transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Security Modal -->
+    <div id="adminSecurityModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center px-4 z-50">
+        <div class="bg-gray-900 p-5 rounded-2xl border border-gray-800 max-w-sm w-full">
+            <h3 class="text-sm font-bold text-yellow-400 mb-2">Admin Security</h3>
+            <p class="text-[11px] text-gray-400 mb-3">Enter admin password to access control panel.</p>
+            <input type="password" id="adminPasswordInput" placeholder="Password" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white mb-3 focus:outline-none focus:border-yellow-500">
+            <div class="flex space-x-2">
+                <button onclick="verifyAdminPassword()" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold py-2 rounded-xl text-xs transition">Login</button>
+                <button onclick="closeAdminSecurityModal()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-2 rounded-xl text-xs transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Control Panel (Hidden by default, opens after password) -->
+    <div id="adminPanel" class="container mx-auto px-4 py-4 max-w-md hidden mb-8">
+        <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 shadow-xl">
+            <h2 class="text-sm font-bold mb-4 text-yellow-400 border-b border-gray-800 pb-2">Admin Control Panel</h2>
+            
+            <div class="space-y-4 text-xs">
+                <div>
+                    <h3 class="font-semibold text-gray-300 mb-1">Pending Deposits</h3>
+                    <div id="pendingDeposits" class="bg-gray-950 p-2.5 rounded border border-gray-800 text-gray-400">No pending deposits</div>
+                </div>
+
+                <div>
+                    <h3 class="font-semibold text-gray-300 mb-1">Pending Withdrawals</h3>
+                    <div id="pendingWithdrawals" class="bg-gray-950 p-2.5 rounded border border-gray-800 text-gray-400">No pending withdrawals</div>
+                </div>
+
+                <!-- NEW SECTION: User Detailed Financial & Trade Ledger -->
+                <div class="bg-gray-950 p-3 rounded-lg border border-yellow-600/30">
+                    <h3 class="font-semibold text-yellow-400 mb-1">User Detailed Financial & Trade Ledger</h3>
+                    <p class="text-[10px] text-gray-400 mb-2">Starting balance, current balance & trade history across devices.</p>
+                    <div class="max-h-48 overflow-y-auto">
+                        <div id="userDetailedLedgerContainer">
+                            <p class="text-gray-500 text-center py-2">Loading user financial details...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-950 p-3 rounded-lg border border-gray-800">
+                    <h3 class="font-semibold text-yellow-400 mb-2">Edit Deposit Info</h3>
+                    <div class="space-y-2">
+                        <input type="text" id="depositAddressInput" placeholder="TRC20 Address" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white">
+                        <input type="text" id="depositDetailsInput" placeholder="Phone / Name Info" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white">
+                        <button onclick="saveDepositInfo()" class="bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold px-3 py-1.5 rounded text-[11px]">Save Info</button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-950 p-3 rounded-lg border border-gray-800">
+                    <h3 class="font-semibold text-yellow-400 mb-1">Fee Management</h3>
+                    <div class="flex space-x-2">
+                        <input type="number" id="feeInput" value="0.1" step="0.01" class="w-full bg-gray-900 border border-gray-700 rounded p-1.5 text-white">
+                        <button onclick="saveFee()" class="bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold px-3 py-1.5 rounded">Save</button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-950 p-3 rounded-lg border border-gray-800">
+                    <h3 class="font-semibold text-yellow-400 mb-1">Admin Profit Withdrawal</h3>
+                    <p class="text-[10px] text-gray-400 mb-2">Accumulated Fees: <span id="accumulatedFees" class="text-green-400 font-bold">0.00 USDT</span></p>
+                    <input type="text" id="adminWithdrawAddress" placeholder="TRC20 Address" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white mb-2">
+                    <button onclick="withdrawAdminProfit()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 rounded">Withdraw Profit</button>
+                </div>
+            </div>
+
+            <div class="mt-4 text-center">
+                <button onclick="closeAdminPanel()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-1.5 rounded text-xs">Close Panel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Frontend Script File -->
     <script src="script.js"></script>
 </body>
 </html>
