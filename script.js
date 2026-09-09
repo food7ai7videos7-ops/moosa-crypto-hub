@@ -1,5 +1,5 @@
 /**
- * Crypto Hub & Admin Panel Logic - Final Public Bin & Secured Code
+ * Crypto Hub & Admin Panel Logic - Final Updated Script
  */
 
 const BIN_ID = "6aa0f3b4ffd3d16853f82308";        
@@ -35,7 +35,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setupMarketSearch();
     fetchCloudData();
 
-    // Auto-sync every 2 seconds
     setInterval(fetchCloudData, 2000);
 });
 
@@ -47,7 +46,6 @@ function ensureDataStructure(data) {
     return data;
 }
 
-// Fetch data from Cloud
 async function fetchCloudData() {
     try {
         const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
@@ -67,7 +65,6 @@ function updateUIWithState(data) {
     data = ensureDataStructure(data);
     const myId = getOrCreateUserId();
 
-    // 1. Update User Balance
     const userBal = data.balances[myId] || 0;
     const balEl = document.getElementById("userBalance");
     if (balEl) balEl.innerText = `$${parseFloat(userBal).toFixed(2)}`;
@@ -85,7 +82,6 @@ function updateUIWithState(data) {
         }
     }
 
-    // 2. Update Deposit Info on User Screen
     const instructionsEl = document.getElementById("depositInstructions");
     if (instructionsEl) {
         instructionsEl.innerHTML = `
@@ -96,7 +92,6 @@ function updateUIWithState(data) {
         `;
     }
 
-    // 3. Admin Panel UI Check
     const adminPanelEl = document.getElementById("adminPanel");
     const isAdminOpen = adminPanelEl && adminPanelEl.style.display === 'block';
     if (!isAdminOpen) return;
@@ -147,7 +142,6 @@ function updateUIWithState(data) {
     }
 }
 
-// Admin Actions
 async function saveDepositInfo() {
     const trc20 = document.getElementById("depositAddressInput").value.trim();
     const details = document.getElementById("depositDetailsInput").value.trim();
@@ -165,7 +159,7 @@ async function saveDepositInfo() {
             headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
             body: JSON.stringify(data)
         });
-        alert("Deposit Info saved and synced globally!");
+        alert("Deposit Info saved successfully!");
         fetchCloudData();
     } catch(e) { console.error(e); alert("Error saving info."); }
 }
@@ -184,12 +178,11 @@ async function saveFee() {
             headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
             body: JSON.stringify(data)
         });
-        alert("Trading fee saved permanently!");
+        alert("Trading fee saved successfully!");
         fetchCloudData();
     } catch(e) { console.error(e); alert("Error saving fee."); }
 }
 
-// User Actions (Fixed Deposit Submission)
 async function submitDepositRequest() {
     const amount = parseFloat(document.getElementById("depositAmountInput").value);
     if (!amount || amount <= 0) { alert("Enter a valid deposit amount."); return; }
@@ -202,19 +195,11 @@ async function submitDepositRequest() {
         const json = await res.json();
         let data = ensureDataStructure(json.record || {});
 
-        data.deposits.push({
-            amount: amount,
-            userId: myId,
-            time: timeStr
-        });
+        data.deposits.push({ amount: amount, userId: myId, time: timeStr });
 
         const updateRes = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': API_KEY,
-                'X-Bin-Versioning': 'false'
-            },
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
             body: JSON.stringify(data)
         });
 
@@ -244,19 +229,11 @@ async function submitWithdrawRequest() {
         const json = await res.json();
         let data = ensureDataStructure(json.record || {});
 
-        data.withdrawals.push({
-            amount: amount,
-            userId: myId,
-            time: timeStr
-        });
+        data.withdrawals.push({ amount: amount, userId: myId, time: timeStr });
 
         const updateRes = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': API_KEY,
-                'X-Bin-Versioning': 'false'
-            },
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
             body: JSON.stringify(data)
         });
 
@@ -274,7 +251,6 @@ async function submitWithdrawRequest() {
     }
 }
 
-// Admin Approvals
 async function approveDeposit(index) {
     try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
@@ -288,7 +264,6 @@ async function approveDeposit(index) {
 
             if (!data.balances) data.balances = {};
             data.balances[uid] = (data.balances[uid] || 0) + amt;
-
             data.deposits.splice(index, 1);
 
             await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
@@ -363,7 +338,6 @@ async function rejectWithdrawal(index) {
     } catch(e) { console.error(e); }
 }
 
-// Markets & Trading
 function renderMarketsList(pairs) {
     const container = document.getElementById("marketsListContainer");
     if (!container) return;
@@ -397,7 +371,6 @@ function selectTradingPair(symbol, price) {
     document.getElementById("activeTradingPrice").innerText = `$${price.toFixed(4)}`;
 }
 
-// STRICT TRADE EXECUTION CHECK (Balance validation added)
 async function executeTrade(side) {
     const amountInput = document.getElementById("tradeAmountInput").value;
     const tradeAmount = parseFloat(amountInput);
@@ -430,15 +403,14 @@ async function executeTrade(side) {
     }
 }
 
-// Modals
 function openDepositModal() { document.getElementById("depositModal").style.display = 'flex'; }
 function closeDepositModal() { document.getElementById("depositModal").style.display = 'none'; }
 function openWithdrawModal() { document.getElementById("withdrawModal").style.display = 'flex'; }
-function closeWithdrawModal() { document.getElementById("withdrawModal").style.display = 'none'; }
+function closeWithdrawModal() { document.getElementById("withdrawModal*/wa*/w*/withdrawModal").style.display = 'none'; }
 function openAdminSecurityModal() { document.getElementById("adminSecurityModal").style.display = 'flex'; }
 function closeAdminSecurityModal() { document.getElementById("adminSecurityModal").style.display = 'none'; }
 
-function verifyAdminPassword() {
+function verifyAdminPanelPassword() {
     const pwd = document.getElementById("adminPasswordInput").value;
     if (pwd === "Mmooossaa35") {
         closeAdminSecurityModal();
@@ -450,4 +422,3 @@ function verifyAdminPassword() {
     }
 }
 function closeAdminPanel() { document.getElementById("adminPanel").style.display = 'none'; }
-async function withdrawAdminProfit() { alert("Profit withdrawal requested."); }
