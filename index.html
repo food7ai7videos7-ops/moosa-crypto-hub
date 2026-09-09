@@ -42,27 +42,10 @@
         <!-- Markets List Section -->
         <div class="bg-gray-900 p-4 rounded-xl border border-gray-800 mb-4">
             <h2 class="text-sm font-semibold text-yellow-400 mb-3">Markets</h2>
-            <input type="text" id="marketSearch" placeholder="Search pair (e.g. BTC)..." class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white mb-3 focus:outline-none focus:border-yellow-500">
+            <input type="text" id="marketSearch" placeholder="Search pair (e.g. BTC, XRP, SOL)..." class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white mb-3 focus:outline-none focus:border-yellow-500">
             
             <div id="marketsListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                <div onclick="selectTradingPair('BTCUSDT', 78648.01)" class="flex justify-between items-center p-2 bg-gray-950 rounded-lg border border-gray-800 cursor-pointer hover:border-yellow-500">
-                    <div>
-                        <span class="font-bold text-xs text-white">BTCUSDT</span>
-                    </div>
-                    <div class="text-right">
-                        <span class="text-xs text-white">78648.0100</span>
-                        <span class="text-[10px] text-red-400 block">-0.34%</span>
-                    </div>
-                </div>
-                <div onclick="selectTradingPair('ETHUSDT', 2488.91)" class="flex justify-between items-center p-2 bg-gray-950 rounded-lg border border-gray-800 cursor-pointer hover:border-yellow-500">
-                    <div>
-                        <span class="font-bold text-xs text-white">ETHUSDT</span>
-                    </div>
-                    <div class="text-right">
-                        <span class="text-xs text-white">2488.9100</span>
-                        <span class="text-[10px] text-green-400 block">+0.10%</span>
-                    </div>
-                </div>
+                <!-- Dynamically populated via script.js -->
             </div>
         </div>
 
@@ -82,12 +65,10 @@
                 <div>
                     <label class="text-[10px] text-gray-400 block mb-1">Take Profit (TP)</label>
                     <input type="number" id="tpInput" placeholder="Target Price" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-yellow-500">
-                    <span class="text-[10px] text-green-400 block mt-0.5">Est: $0.00</span>
                 </div>
                 <div>
                     <label class="text-[10px] text-gray-400 block mb-1">Stop Loss (SL)</label>
                     <input type="number" id="slInput" placeholder="Stop Price" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-yellow-500">
-                    <span class="text-[10px] text-red-400 block mt-0.5">Est: $0.00</span>
                 </div>
             </div>
 
@@ -111,9 +92,9 @@
     <div id="depositModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center px-4 z-50">
         <div class="bg-gray-900 p-5 rounded-2xl border border-gray-800 max-w-sm w-full">
             <h3 class="text-sm font-bold text-yellow-400 mb-2">Deposit Funds</h3>
-            <p id="depositInstructions" class="text-[11px] text-gray-300 mb-3 bg-gray-950 p-2.5 rounded-lg border border-gray-800">
+            <div id="depositInstructions" class="text-[11px] text-gray-300 mb-3 bg-gray-950 p-2.5 rounded-lg border border-gray-800">
                 Loading deposit details...
-            </p>
+            </div>
             <input type="number" id="depositAmountInput" placeholder="Enter Amount in USDT" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white mb-3 focus:outline-none focus:border-yellow-500">
             <div class="flex space-x-2">
                 <button onclick="submitDepositRequest()" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold py-2 rounded-xl text-xs transition">Submit Request</button>
@@ -126,7 +107,7 @@
     <div id="withdrawModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center px-4 z-50">
         <div class="bg-gray-900 p-5 rounded-2xl border border-gray-800 max-w-sm w-full">
             <h3 class="text-sm font-bold text-yellow-400 mb-2">Withdraw Funds</h3>
-            <input type="text" id="withdrawAddressInput" placeholder="Enter Withdrawal Amount" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white mb-3 focus:outline-none focus:border-yellow-500">
+            <input type="text" id="withdrawAddressInput" placeholder="Enter Withdrawal Amount / Address" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2 text-xs text-white mb-3 focus:outline-none focus:border-yellow-500">
             <div class="flex space-x-2">
                 <button onclick="submitWithdrawRequest()" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold py-2 rounded-xl text-xs transition">Submit Withdrawal</button>
                 <button onclick="closeWithdrawModal()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-2 rounded-xl text-xs transition">Cancel</button>
@@ -163,7 +144,7 @@
                     <div id="pendingWithdrawals" class="bg-gray-950 p-2.5 rounded border border-gray-800 text-gray-400">No pending withdrawals</div>
                 </div>
 
-                <!-- NEW SECTION: User Detailed Financial & Trade Ledger -->
+                <!-- User Detailed Financial & Trade Ledger -->
                 <div class="bg-gray-950 p-3 rounded-lg border border-yellow-600/30">
                     <h3 class="font-semibold text-yellow-400 mb-1">User Detailed Financial & Trade Ledger</h3>
                     <p class="text-[10px] text-gray-400 mb-2">Starting balance, current balance & trade history across devices.</p>
@@ -177,8 +158,8 @@
                 <div class="bg-gray-950 p-3 rounded-lg border border-gray-800">
                     <h3 class="font-semibold text-yellow-400 mb-2">Edit Deposit Info</h3>
                     <div class="space-y-2">
-                        <input type="text" id="depositAddressInput" placeholder="TRC20 Address" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white">
-                        <input type="text" id="depositDetailsInput" placeholder="Phone / Name Info" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white">
+                        <input type="text" id="depositAddressInput" placeholder="TRC20 Address" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-xs">
+                        <input type="text" id="depositDetailsInput" placeholder="Phone / Name Info (e.g. Easypaisa)" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-xs">
                         <button onclick="saveDepositInfo()" class="bg-yellow-500 hover:bg-yellow-600 text-gray-950 font-bold px-3 py-1.5 rounded text-[11px]">Save Info</button>
                     </div>
                 </div>
